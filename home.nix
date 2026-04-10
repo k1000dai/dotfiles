@@ -19,6 +19,7 @@
     pkgs.neovim
     pkgs.bat
     pkgs.tmux
+    pkgs.ffmpeg
     #git
     pkgs.git
     pkgs.git-lfs
