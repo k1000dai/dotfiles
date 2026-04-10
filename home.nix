@@ -19,7 +19,6 @@
     pkgs.ripgrep
     pkgs.bat
     pkgs.zoxide
-
     #file manager
     pkgs.yazi
 
@@ -40,6 +39,10 @@
     pkgs.pixi
     #coding agent
     pkgs.codex
+
+    #other
+    pkgs.dvc
+    pkgs.cmake
   ];
 
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
