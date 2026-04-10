@@ -1,0 +1,23 @@
+theme = TokyoNight Night
+
+font-family = Fira Code
+font-size = 14
+font-style = Regular
+font-feature = +calt
+font-feature = +liga
+
+# Window Settings
+#macos-titlebar-style = "transparent"
+window-padding-balance = true
+window-padding-x = 0
+window-padding-y = 0
+window-theme = "ghostty"
+background = 282c34
+foreground = ffffff
+background-opacity = 0.8
+
+# カーソルを赤色に
+cursor-color = #ff2c6d
+cursor-style = block
+cursor-style-blink = true
+

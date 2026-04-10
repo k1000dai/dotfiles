@@ -53,6 +53,7 @@
       "yabai".source = ./config/yabai;
       "skhd".source = ./config/skhd;
       "lazygit".source = ./config/lazygit;
+      "ghostty".source = ./config/ghostty;
   };
 
   # Home Manager can also manage your environment variables through
