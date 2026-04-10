@@ -25,6 +25,8 @@
     pkgs.ghq
     pkgs.gh
     pkgs.lazygit
+    #coding agent
+    pkgs.codex
   ];
 
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
