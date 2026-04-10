@@ -31,6 +31,10 @@
     pkgs.ghq
     pkgs.gh
     pkgs.lazygit
+
+    #python
+    pkgs.uv
+    pkgs.pixi
     #coding agent
     pkgs.codex
   ];
