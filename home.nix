@@ -19,6 +19,7 @@
   # environment.
   home.packages = [
     pkgs.fzf
+    pkgs.neovim
     pkgs.bat
     pkgs.tmux
     #git
