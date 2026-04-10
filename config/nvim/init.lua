@@ -25,4 +25,33 @@ require("lazy").setup(require("plugins"), {
   checker = { enabled = true },
   change_detection = { notify = false },
   lockfile = vim.fn.stdpath("state") .. "/lazy-lock.json",
+  performance = {
+    rtp = {
+      reset = false,
+    },
+  },
+})
+
+local function packadd(name)
+  pcall(vim.cmd.packadd, name)
+end
+
+packadd("nvim-lspconfig")
+packadd("nvim-treesitter")
+packadd("nvim-treesitter-grammars")
+
+require("lsp")
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = {
+    "python",
+    "c",
+    "lua",
+    "vim",
+    "vimdoc",
+    "query",
+    "markdown",
+  },
+  callback = function(args)
+    pcall(vim.treesitter.start, args.buf)
+  end,
 })

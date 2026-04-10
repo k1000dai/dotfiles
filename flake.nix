@@ -13,19 +13,30 @@
   outputs =
     { nixpkgs, home-manager, ... }:
     let
-      system = "aarch64-darwin";
-      pkgs = nixpkgs.legacyPackages.${system};
+      systems = {
+        darwin = "aarch64-darwin";
+        linux = "x86_64-linux";
+      };
+
+      pkgsFor =
+        system:
+        import nixpkgs {
+          inherit system;
+          config.allowUnfree = true;
+        };
+
+      mkHomeConfiguration =
+        system: modules:
+        home-manager.lib.homeManagerConfiguration {
+          pkgs = pkgsFor system;
+          inherit modules;
+        };
     in
     {
-      homeConfigurations."kohei" = home-manager.lib.homeManagerConfiguration {
-        inherit pkgs;
-
-        # Specify your home configuration modules here, for example,
-        # the path to your home.nix.
-        modules = [ ./home.nix ];
-
-        # Optionally use extraSpecialArgs
-        # to pass through arguments to home.nix
+      homeConfigurations = {
+        kohei = mkHomeConfiguration systems.darwin [ ./home-darwin.nix ];
+        kohei-darwin = mkHomeConfiguration systems.darwin [ ./home-darwin.nix ];
+        kohei-linux = mkHomeConfiguration systems.linux [ ./home-linux.nix ];
       };
     };
 }

@@ -14,18 +14,6 @@ return {
   { "nvim-lua/plenary.nvim" },
   { "nvim-tree/nvim-web-devicons" },
 
-  -- LSP
-  {
-    "neovim/nvim-lspconfig",
-    dependencies = {
-      "williamboman/mason.nvim",
-      "williamboman/mason-lspconfig.nvim",
-    },
-    config = function()
-      require("lsp")
-    end,
-  },
-
   -- Completion
   {
     "hrsh7th/nvim-cmp",
@@ -130,30 +118,6 @@ return {
       { "<Leader>fb", "<cmd>Telescope buffers<CR>", silent = true },
       { "<Leader>fh", "<cmd>Telescope help_tags<CR>", silent = true },
     },
-  },
-
-  -- Treesitter
-  {
-    "nvim-treesitter/nvim-treesitter",
-    build = ":TSUpdate",
-    config = function()
-      require("nvim-treesitter.configs").setup({
-        ensure_installed = {
-          "python",
-          "c",
-          "lua",
-          "vim",
-          "vimdoc",
-          "query",
-          "markdown",
-          "markdown_inline",
-        },
-        highlight = {
-          enable = true,
-          disable = {},
-        },
-      })
-    end,
   },
 
   -- Git

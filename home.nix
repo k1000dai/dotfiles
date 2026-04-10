@@ -1,84 +1,82 @@
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 {
-  # Home Manager needs a bit of information about you and the paths it should
-  # manage.
   home.username = "kohei";
-  home.homeDirectory = "/Users/kohei";
+  home.stateVersion = "25.11";
 
-  # release notes.
-  home.stateVersion = "25.11"; # Please read the comment before changing.
-
-  # The home.packages option allows you to install Nix packages into your
-  # environment.
   home.packages = [
-    #shell
+    # shell
     pkgs.zsh
-
     pkgs.fzf
     pkgs.ripgrep
     pkgs.bat
     pkgs.zoxide
-    #file manager
+
+    # file manager
     pkgs.yazi
 
     pkgs.tmux
     pkgs.ffmpeg
     pkgs.wget
-    pkgs.neovim
+    pkgs.tree-sitter
+    pkgs.clang-tools
+    pkgs.ruff
+    pkgs.ty
+    pkgs.typescript
+    pkgs.typescript-language-server
+    pkgs.vscode-langservers-extracted
+    pkgs.rust-analyzer
 
-    #git
+    # git
     pkgs.git
     pkgs.git-lfs
     pkgs.ghq
     pkgs.gh
     pkgs.lazygit
 
-    #python
+    # python
     pkgs.uv
     pkgs.pixi
-    #coding agent
+
+    # coding agent
     pkgs.codex
 
-    #other
+    # other
     pkgs.dvc
     pkgs.cmake
   ];
 
-  # Home Manager is pretty good at managing dotfiles. The primary way to manage
-  # plain files is through 'home.file'.
   home.file = {
-      ".tmux.conf".source = ./.tmux.conf;
+    ".tmux.conf".source = ./.tmux.conf;
   };
 
   xdg.configFile = {
-      "nvim".source = ./config/nvim;
-      "yabai".source = ./config/yabai;
-      "skhd".source = ./config/skhd;
-      "lazygit".source = ./config/lazygit;
-      "ghostty".source = ./config/ghostty;
+    "nvim".source = ./config/nvim;
+    "lazygit".source = ./config/lazygit;
+    "ghostty".source = ./config/ghostty;
   };
 
-  # Home Manager can also manage your environment variables through
-  # 'home.sessionVariables'. These will be explicitly sourced when using a
-  # shell provided by Home Manager. If you don't want to manage your shell
-  # through Home Manager then you have to manually source 'hm-session-vars.sh'
-  # located at either
-  #
-  #  ~/.nix-profile/etc/profile.d/hm-session-vars.sh
-  #
-  # or
-  #
-  #  ~/.local/state/nix/profiles/profile/etc/profile.d/hm-session-vars.sh
-  #
-  # or
-  #
-  #  /etc/profiles/per-user/kohei/etc/profile.d/hm-session-vars.sh
-  #
   home.sessionVariables = {
-    # EDITOR = "emacs";
+    EDITOR = "nvim";
+    VISUAL = "nvim";
   };
 
-  # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
+  programs.neovim = {
+    enable = true;
+    plugins = with pkgs.vimPlugins; [
+      nvim-lspconfig
+      (nvim-treesitter.withPlugins (p: with p; [
+        python
+        c
+        lua
+        vim
+        vimdoc
+        query
+        markdown
+        markdown_inline
+      ]))
+    ];
+  };
+
 }

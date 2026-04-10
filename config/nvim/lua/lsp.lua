@@ -1,20 +1,5 @@
 -- LSP Configuration (Neovim 0.11+)
 
--- Setup mason (LSP installer)
-require("mason").setup()
-require("mason-lspconfig").setup({
-  ensure_installed = {
-    "clangd",
-    "ty",
-    "ruff",
-    "ts_ls",
-    "html",
-    "cssls",
-    "jsonls",
-    "rust_analyzer",
-  },
-})
-
 -- Capabilities for nvim-cmp
 local capabilities = require("cmp_nvim_lsp").default_capabilities()
 
@@ -52,9 +37,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
   end,
 })
 
--- Configure LSP servers using vim.lsp.config (Neovim 0.11+)
+-- Configure LSP servers using vim.lsp.config (Neovim 0.11+).
+-- Server binaries are installed by Nix/Home Manager.
 vim.lsp.config("clangd", {
-  cmd = { "/opt/homebrew/opt/llvm/bin/clangd" },
   capabilities = capabilities,
 })
 
