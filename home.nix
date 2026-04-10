@@ -17,14 +17,17 @@
 
     pkgs.fzf
     pkgs.ripgrep
-    pkgs.neovim
     pkgs.bat
     pkgs.zoxide
+
     #file manager
     pkgs.yazi
 
     pkgs.tmux
     pkgs.ffmpeg
+    pkgs.wget
+    pkgs.neovim
+
     #git
     pkgs.git
     pkgs.git-lfs
