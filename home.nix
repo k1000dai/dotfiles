@@ -16,6 +16,7 @@
     pkgs.zsh
 
     pkgs.fzf
+    pkgs.ripgrep
     pkgs.neovim
     pkgs.bat
     pkgs.tmux
