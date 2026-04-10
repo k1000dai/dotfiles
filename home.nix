@@ -19,6 +19,9 @@
     pkgs.ripgrep
     pkgs.neovim
     pkgs.bat
+    #file manager
+    pkgs.yazi
+
     pkgs.tmux
     pkgs.ffmpeg
     #git
