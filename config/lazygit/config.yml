@@ -1,0 +1,11 @@
+# https://github.com/jesseduffield/lazygit/blob/master/docs/Config.md
+
+customCommands:
+  - command: czg
+    context: files
+    key: c
+    output: terminal
+  - command: czg ai
+    context: files
+    key: C
+    output: terminal
