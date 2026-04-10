@@ -19,6 +19,7 @@
     pkgs.ripgrep
     pkgs.neovim
     pkgs.bat
+    pkgs.zoxide
     #file manager
     pkgs.yazi
 
