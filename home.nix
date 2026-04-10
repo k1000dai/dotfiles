@@ -42,6 +42,7 @@
   };
 
   xdg.configFile = {
+      "nvim".source = ./config/nvim;
       "yabai".source = ./config/yabai;
       "skhd".source = ./config/skhd;
       "lazygit".source = ./config/lazygit;
