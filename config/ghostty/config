@@ -15,7 +15,6 @@ window-theme = "ghostty"
 background = 282c34
 foreground = ffffff
 background-opacity = 0.8
-
 # カーソルを赤色に
 cursor-color = #ff2c6d
 cursor-style = block

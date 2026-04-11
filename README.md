@@ -20,85 +20,45 @@ Nix の flake 機能を使います。
 ```bash
 nix --version
 ```
+~/.config/nix/nix.confに
 
-Home Manager はこの flake の input に含めているため、初回は `nix run nixpkgs#home-manager` 経由で実行できます。初回 switch 後は `home-manager` コマンドが使えるようになります。
+`experimental-features = nix-command flakes`
+を追加して、flake を有効にしてください。
 
-## 初回セットアップ
+
+## セットアップ
+### Home Manager をインストールする
+
+```
+nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
+nix-channel --update
+nix-shell '<home-manager>' -A install
+```
 
 このリポジトリを clone して移動します。
 
 ```bash
-git clone <this-repository-url> ~/.dotfiles
+git clone  ~git@github.com:k1000dai/dotfiles.git /.dotfiles
 cd ~/.dotfiles
 ```
 
 macOS では次を実行します。
 
 ```bash
-nix run nixpkgs#home-manager -- switch --flake .#kohei
+home-manager -- switch --flake .#kohei
 ```
 
 Linux では次を実行します。
 
 ```bash
-nix run nixpkgs#home-manager -- switch --flake .#kohei-linux
+home-manager -- switch --flake .#kohei-linux
 ```
 
 `kohei` は macOS 向けの profile です。明示したい場合は `kohei-darwin` も同じ macOS 設定を指します。
 
-## 2 回目以降の反映
-
-初回 switch 後は `home-manager` が有効になるので、変更を反映するときは次のように実行します。
-
-macOS:
-
-```bash
-home-manager switch --flake .#kohei
-```
-
-Linux:
-
-```bash
-home-manager switch --flake .#kohei-linux
-```
 
 `home-manager switch --flake .` のように profile 名を省略すると、環境によって推論される名前が変わることがあります。このリポジトリでは、意図しない profile を選ばないように `.#kohei` または `.#kohei-linux` を明示する運用にしています。
 
-## switch 前に確認する
-
-いきなり反映せず、まず flake の出力や build 結果を確認できます。
-
-flake の出力確認:
-
-```bash
-nix flake show --all-systems --no-write-lock-file
-```
-
-macOS の build:
-
-```bash
-home-manager build --flake .#kohei
-```
-
-Linux の build:
-
-```bash
-home-manager build --flake .#kohei-linux
-```
-
-Home Manager がまだ入っていない初回前の環境では、`home-manager build` の代わりに次のように実行できます。
-
-macOS:
-
-```bash
-nix run nixpkgs#home-manager -- build --flake .#kohei
-```
-
-Linux:
-
-```bash
-nix run nixpkgs#home-manager -- build --flake .#kohei-linux
-```
 
 ## flake.lock を更新する
 
