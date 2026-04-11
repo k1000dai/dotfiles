@@ -50,6 +50,7 @@
     ".tmux.conf".source = ./.tmux.conf;
     ".codex/AGENTS.md".source = ./config/codex/AGENTS.md;
     ".zshrc".source = ./.zshrc;
+    ".zshrc.d".source = ./.zshrc.d;
   };
 
   xdg.configFile = {
