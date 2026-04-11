@@ -1,3 +1,6 @@
+export LSCOLORS='exfxcxdxbxegedabagacad'
+alias ls='ls -G -F'
+
 source_if_exists "/opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
 
 prepend_path "/opt/homebrew/bin"

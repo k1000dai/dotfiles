@@ -43,7 +43,6 @@ export EDITOR=nvim
 
 alias clang++="clang++ -std=c++17 -Wall -Wextra -Wconversion"
 alias clang="clang -std=c99 -Wall -Wextra"
-alias ls='ls -GF'
 alias la='ls -a'
 alias ll='ls -l'
 alias ...='cd ../..'
