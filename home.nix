@@ -49,6 +49,7 @@
   home.file = {
     ".tmux.conf".source = ./.tmux.conf;
     ".codex/AGENTS.md".source = ./config/codex/AGENTS.md;
+    ".zshrc".source = ./.zshrc;
   };
 
   xdg.configFile = {
