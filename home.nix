@@ -26,6 +26,7 @@
     pkgs.typescript-language-server
     pkgs.vscode-langservers-extracted
     pkgs.rust-analyzer
+    pkgs.nodejs
 
     # git
     pkgs.git
@@ -49,6 +50,7 @@
   home.file = {
     ".tmux.conf".source = ./.tmux.conf;
     ".codex/AGENTS.md".source = ./config/codex/AGENTS.md;
+    ".bashrc".source = ./.bashrc;
     ".zshrc".source = ./.zshrc;
     ".zshrc.d".source = ./.zshrc.d;
   };
@@ -65,8 +67,19 @@
   };
 
   programs.home-manager.enable = true;
+  programs.git = {
+    enable = true;
+    settings = {
+      user.name = "k1000dai";
+      user.email = "chiyodakku1000@gmail.com";
+      ghq.root = "~/src";
+    };
+  };
+
   programs.neovim = {
     enable = true;
+    withRuby = true;
+    withPython3 = true;
     plugins = with pkgs.vimPlugins; [
       nvim-lspconfig
       (nvim-treesitter.withPlugins (p: with p; [
