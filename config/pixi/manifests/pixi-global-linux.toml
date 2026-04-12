@@ -5,7 +5,8 @@ version = 1
 
 [envs.cli]
 channels = ["conda-forge"]
-dependencies = { bat = "*", cmake = "*", dvc = "*", ffmpeg = "*", fzf = "*", gh = "*", git = "*", git-lfs = "*", lazygit = "*", ripgrep = "*", tmux = "*", wget = "*", yazi = "*", zoxide = "*" }
+# tmux 3.6 exits unexpectedly on attach in our Linux pixi environment.
+dependencies = { bat = "*", cmake = "*", dvc = "*", ffmpeg = "*", fzf = "*", gh = "*", git = "*", git-lfs = "*", lazygit = "*", ripgrep = "*", tmux = "3.5a", wget = "*", yazi = "*", zoxide = "*" }
 exposed = { bat = "bat", cmake = "cmake", dvc = "dvc", ffmpeg = "ffmpeg", ffprobe = "ffprobe", fzf = "fzf", gh = "gh", git = "git", git-lfs = "git-lfs", lazygit = "lazygit", rg = "rg", tmux = "tmux", wget = "wget", ya = "ya", yazi = "yazi", zoxide = "zoxide" }
 
 [envs.go-ghq]
