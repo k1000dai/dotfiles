@@ -40,7 +40,7 @@ cd ~/.dotfiles
 
 1. `uv` を `~/.local/bin` にインストール
 2. `pixi` を `~/.pixi/bin` にインストール
-3. dotfiles を `~/.config` や `~/.zshrc` へ symlink
+3. dotfiles を `~/.config` や `~/.zshrc` / `~/.bashrc` へ symlink
 4. `~/.pixi/manifests/pixi-global.toml` を repo 内 manifest にリンク
 5. `pixi global sync` を実行して CLI ツール群を導入
 
@@ -120,6 +120,7 @@ manifest は次にあります。
 - `config/ghostty`: Ghostty 設定
 - `config/yabai`: macOS の yabai 設定
 - `config/skhd`: macOS の skhd 設定
+- `.bashrc`: Bash 設定
 - `.zshrc`, `.zshrc.d`: shell 設定
 - `.tmux.conf`: tmux 設定
 
