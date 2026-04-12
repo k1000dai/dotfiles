@@ -29,7 +29,7 @@ nix --version
 ## セットアップ
 ### Home Manager をインストールする
 
-```
+```bash
 nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
 nix-channel --update
 nix-shell '<home-manager>' -A install
@@ -42,15 +42,18 @@ git clone  ~git@github.com:k1000dai/dotfiles.git /.dotfiles
 cd ~/.dotfiles
 ```
 
-macOS では次を実行します。
+セットアップは次を実行します。
+
+```bash
+./script/setup.sh
+```
+
+`script/setup.sh` は `uname` で OS を判定し、macOS では `.#kohei`、Ubuntu / Linux では `.#kohei-linux` を自動で選びます。
+
+直接 `home-manager` を実行したい場合は、次の profile を使ってください。
 
 ```bash
 home-manager switch --flake .#kohei
-```
-
-Linux では次を実行します。
-
-```bash
 home-manager switch --flake .#kohei-linux
 ```
 
@@ -62,15 +65,18 @@ home-manager switch --flake .#kohei-linux
 
 ## flake.lock を更新する
 
-Nixpkgs や Home Manager の input を更新したいときは、次を実行します。
+`nixpkgs` input を更新して、そのまま Home Manager を適用したいときは、次を実行します。
 
 ```bash
-nix flake update
+./script/update.sh
 ```
 
-更新後、build で確認してから switch します。
+`script/update.sh` も OS を判定して、対応する Home Manager profile を自動で apply します。
+
+同じ処理を手動で行う場合は、次のように実行できます。
 
 ```bash
+nix flake update nixpkgs
 home-manager build --flake .#kohei
 home-manager switch --flake .#kohei
 ```
@@ -97,16 +103,16 @@ Linux の場合は `.#kohei-linux` に置き換えてください。
 nvim home.nix
 ```
 
-build で確認します。
+設定をそのまま適用するときは、次を実行します。
 
 ```bash
-home-manager build --flake .#kohei
+./script/setup.sh
 ```
 
-問題なければ switch します。
+`nixpkgs` を更新してから適用したいときは次を使います。
 
 ```bash
-home-manager switch --flake .#kohei
+./script/update.sh
 ```
 
-Linux で作業している場合は、上の `.#kohei` を `.#kohei-linux` に置き換えます。
+手動で build / switch する場合は、macOS では `.#kohei`、Linux では `.#kohei-linux` を指定します。
