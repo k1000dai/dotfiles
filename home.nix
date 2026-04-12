@@ -18,6 +18,8 @@
     pkgs.tmux
     pkgs.ffmpeg
     pkgs.wget
+    pkgs.unar
+    pkgs.graphviz
     pkgs.tree-sitter
     pkgs.clang-tools
     pkgs.ruff
@@ -45,6 +47,13 @@
     # other
     pkgs.dvc
     pkgs.cmake
+    pkgs.ninja
+    pkgs.automake
+    pkgs.autoconf
+
+    #net 
+    pkgs.gping
+    pkgs.nmap
   ];
 
   home.file = {
