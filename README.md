@@ -45,13 +45,13 @@ cd ~/.dotfiles
 macOS では次を実行します。
 
 ```bash
-home-manager -- switch --flake .#kohei
+home-manager switch --flake .#kohei
 ```
 
 Linux では次を実行します。
 
 ```bash
-home-manager -- switch --flake .#kohei-linux
+home-manager switch --flake .#kohei-linux
 ```
 
 `kohei` は macOS 向けの profile です。明示したい場合は `kohei-darwin` も同じ macOS 設定を指します。
