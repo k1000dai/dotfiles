@@ -6,7 +6,7 @@ version = 1
 [envs.cli]
 channels = ["conda-forge"]
 # tmux 3.6 exits unexpectedly on attach in our Linux pixi environment.
-dependencies = { bat = "*", cmake = "*", dvc = "*", ffmpeg = "*", fzf = "*", gh = "*", git = "*", git-lfs = "*", lazygit = "*", ripgrep = "*", tmux = "3.5a", wget = "*", yazi = "*", zoxide = "*" , pueue = "*" , codex = "*" }
+dependencies = { bat = "*", cmake = "*", dvc = "*", ffmpeg = "*", fzf = "*", gh = "*", git = "*", git-lfs = "*", lazygit = "*", ripgrep = "*", tmux = "==3.5a", wget = "*", yazi = "*", zoxide = "*" , pueue = "*" , codex = "*" }
 exposed = { bat = "bat", cmake = "cmake", dvc = "dvc", ffmpeg = "ffmpeg", ffprobe = "ffprobe", fzf = "fzf", gh = "gh", git = "git", git-lfs = "git-lfs", lazygit = "lazygit", rg = "rg", tmux = "tmux", wget = "wget", ya = "ya", yazi = "yazi", zoxide = "zoxide" , pueue = "pueue" , codex = "codex" }
 
 [envs.go-ghq]
@@ -26,8 +26,8 @@ exposed = { lua = "lua", luarocks = "luarocks", node = "node", npm = "npm", nvim
 
 [envs.lsp]
 channels = ["conda-forge"]
-dependencies = { clang-tools = "*", nodejs = "*", typescript = "*", typescript-language-server = "*", vscode-langservers-extracted = "*" }
-exposed = { clangd = "clangd", clang-format = "clang-format", clang-tidy = "clang-tidy", tsc = "tsc", tsserver = "tsserver", typescript-language-server = "typescript-language-server", vscode-css-language-server = "vscode-css-language-server", vscode-eslint-language-server = "vscode-eslint-language-server", vscode-html-language-server = "vscode-html-language-server", vscode-json-language-server = "vscode-json-language-server" }
+dependencies = { clang-tools = "*", nodejs = "*", ty = "*", typescript = "*", typescript-language-server = "*", vscode-langservers-extracted = "*" }
+exposed = { clangd = "clangd", clang-format = "clang-format", clang-tidy = "clang-tidy", tsc = "tsc", tsserver = "tsserver", ty = "ty", typescript-language-server = "typescript-language-server", vscode-css-language-server = "vscode-css-language-server", vscode-eslint-language-server = "vscode-eslint-language-server", vscode-html-language-server = "vscode-html-language-server", vscode-json-language-server = "vscode-json-language-server" }
 
 [envs.linux-clipboard]
 channels = ["conda-forge"]

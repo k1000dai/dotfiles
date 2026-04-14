@@ -320,6 +320,23 @@ sync_pixi_global() {
   run pixi global list
 }
 
+sync_neovim_plugins() {
+  if [[ "${SKIP_PIXI_SYNC}" == "1" ]]; then
+    log "Skipping Neovim plugin sync because SKIP_PIXI_SYNC=1"
+    return 0
+  fi
+
+  if ! command -v nvim >/dev/null 2>&1; then
+    log "Skipping Neovim plugin sync because nvim is not available on PATH"
+    return 0
+  fi
+
+  log "Syncing Neovim plugins with lazy.nvim"
+  if ! run nvim --headless "+Lazy! sync" +qa; then
+    log "Neovim plugin sync failed; continuing without blocking setup"
+  fi
+}
+
 sync_npm_global_packages() {
   local prefix
   local package_spec
@@ -490,6 +507,7 @@ setup_with_pixi() {
 
   setup_links
   sync_pixi_global
+  sync_neovim_plugins
   sync_npm_global_packages
   log "Pixi-based setup completed. Restart the shell or run: source ~/.zshrc"
 }

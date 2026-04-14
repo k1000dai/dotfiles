@@ -25,5 +25,5 @@ exposed = { lua = "lua", luarocks = "luarocks", node = "node", npm = "npm", nvim
 
 [envs.lsp]
 channels = ["conda-forge"]
-dependencies = { clang-tools = "*", nodejs = "*", typescript = "*", typescript-language-server = "*", vscode-langservers-extracted = "*" }
-exposed = { clangd = "clangd", clang-format = "clang-format", clang-tidy = "clang-tidy", tsc = "tsc", tsserver = "tsserver", typescript-language-server = "typescript-language-server", vscode-css-language-server = "vscode-css-language-server", vscode-eslint-language-server = "vscode-eslint-language-server", vscode-html-language-server = "vscode-html-language-server", vscode-json-language-server = "vscode-json-language-server" }
+dependencies = { clang-tools = "*", nodejs = "*", ty = "*", typescript = "*", typescript-language-server = "*", vscode-langservers-extracted = "*" }
+exposed = { clangd = "clangd", clang-format = "clang-format", clang-tidy = "clang-tidy", tsc = "tsc", tsserver = "tsserver", ty = "ty", typescript-language-server = "typescript-language-server", vscode-css-language-server = "vscode-css-language-server", vscode-eslint-language-server = "vscode-eslint-language-server", vscode-html-language-server = "vscode-html-language-server", vscode-json-language-server = "vscode-json-language-server" }

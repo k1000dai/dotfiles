@@ -2,6 +2,16 @@
 
 -- Capabilities for nvim-cmp
 local capabilities = require("cmp_nvim_lsp").default_capabilities()
+local servers = {
+  { name = "clangd", executable = "clangd" },
+  { name = "ty", executable = "ty" },
+  { name = "ruff", executable = "ruff" },
+  { name = "ts_ls", executable = "typescript-language-server" },
+  { name = "html", executable = "vscode-html-language-server" },
+  { name = "cssls", executable = "vscode-css-language-server" },
+  { name = "jsonls", executable = "vscode-json-language-server" },
+  { name = "rust_analyzer", executable = "rust-analyzer" },
+}
 
 -- LSP keymaps (set when LSP attaches to buffer)
 vim.api.nvim_create_autocmd("LspAttach", {
@@ -38,50 +48,24 @@ vim.api.nvim_create_autocmd("LspAttach", {
 })
 
 -- Configure LSP servers using vim.lsp.config (Neovim 0.11+).
--- Server binaries are installed by Nix/Home Manager.
-vim.lsp.config("clangd", {
-  capabilities = capabilities,
-})
+-- Server binaries are installed by Nix/Home Manager or pixi.
+for _, server in ipairs(servers) do
+  vim.lsp.config(server.name, {
+    capabilities = capabilities,
+  })
+end
 
-vim.lsp.config("ty", {
-  capabilities = capabilities,
-})
+local enabled_servers = {}
 
-vim.lsp.config("ruff", {
-  capabilities = capabilities,
-})
+for _, server in ipairs(servers) do
+  if vim.fn.executable(server.executable) == 1 then
+    table.insert(enabled_servers, server.name)
+  end
+end
 
-vim.lsp.config("ts_ls", {
-  capabilities = capabilities,
-})
-
-vim.lsp.config("html", {
-  capabilities = capabilities,
-})
-
-vim.lsp.config("cssls", {
-  capabilities = capabilities,
-})
-
-vim.lsp.config("jsonls", {
-  capabilities = capabilities,
-})
-
-vim.lsp.config("rust_analyzer", {
-  capabilities = capabilities,
-})
-
--- Enable all configured LSP servers
-vim.lsp.enable({
-  "clangd",
-  "ty",
-  "ruff",
-  "ts_ls",
-  "html",
-  "cssls",
-  "jsonls",
-  "rust_analyzer",
-})
+if #enabled_servers > 0 then
+  vim.lsp.enable(enabled_servers)
+end
 
 -- Diagnostic configuration
 vim.diagnostic.config({

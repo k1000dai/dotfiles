@@ -14,6 +14,15 @@ return {
   { "nvim-lua/plenary.nvim" },
   { "nvim-tree/nvim-web-devicons" },
 
+  -- LSP
+  {
+    "neovim/nvim-lspconfig",
+    lazy = false,
+    config = function()
+      require("lsp")
+    end,
+  },
+
   -- Completion
   {
     "hrsh7th/nvim-cmp",
@@ -118,6 +127,13 @@ return {
       { "<Leader>fb", "<cmd>Telescope buffers<CR>", silent = true },
       { "<Leader>fh", "<cmd>Telescope help_tags<CR>", silent = true },
     },
+  },
+
+  -- Treesitter
+  {
+    "nvim-treesitter/nvim-treesitter",
+    lazy = false,
+    build = ":TSUpdate",
   },
 
   -- Git
