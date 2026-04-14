@@ -1,13 +1,13 @@
 version = 1
 
 # pixi / uv 自体は bootstrap の都合で script/setup.sh 側で先に入れます。
-# rust-analyzer / codex / fonts など、system 依存や別配布のものはここでは無理に束ねません。
+# system 依存や別配布のものはここでは無理に束ねません。
 
 [envs.cli]
 channels = ["conda-forge"]
 # tmux 3.6 exits unexpectedly on attach in our Linux pixi environment.
-dependencies = { bat = "*", cmake = "*", dvc = "*", ffmpeg = "*", fzf = "*", gh = "*", git = "*", git-lfs = "*", lazygit = "*", ripgrep = "*", tmux = "3.5a", wget = "*", yazi = "*", zoxide = "*" , pueue = "*" }
-exposed = { bat = "bat", cmake = "cmake", dvc = "dvc", ffmpeg = "ffmpeg", ffprobe = "ffprobe", fzf = "fzf", gh = "gh", git = "git", git-lfs = "git-lfs", lazygit = "lazygit", rg = "rg", tmux = "tmux", wget = "wget", ya = "ya", yazi = "yazi", zoxide = "zoxide" , pueue = "pueue" }
+dependencies = { bat = "*", cmake = "*", dvc = "*", ffmpeg = "*", fzf = "*", gh = "*", git = "*", git-lfs = "*", lazygit = "*", ripgrep = "*", tmux = "3.5a", wget = "*", yazi = "*", zoxide = "*" , pueue = "*" , codex = "*" }
+exposed = { bat = "bat", cmake = "cmake", dvc = "dvc", ffmpeg = "ffmpeg", ffprobe = "ffprobe", fzf = "fzf", gh = "gh", git = "git", git-lfs = "git-lfs", lazygit = "lazygit", rg = "rg", tmux = "tmux", wget = "wget", ya = "ya", yazi = "yazi", zoxide = "zoxide" , pueue = "pueue" , codex = "codex" }
 
 [envs.go-ghq]
 channels = ["conda-forge"]
