@@ -11,6 +11,7 @@
     pkgs.ripgrep
     pkgs.bat
     pkgs.zoxide
+    pkgs.pueue
 
     # file manager
     pkgs.yazi

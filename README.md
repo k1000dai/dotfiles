@@ -1,6 +1,6 @@
 # dotfiles
 
-Kohei の dotfiles です。
+k1000dai の dotfiles です。
 
 現在の主入口は `script/setup.sh` です。セットアップ方式は次の優先順で自動選択されます。
 
