@@ -1,0 +1,2 @@
+# npm -g install でしか入れられない CLI をここで管理する
+happy

@@ -12,6 +12,8 @@ SKIP_TOOL_INSTALL="${SKIP_TOOL_INSTALL:-0}"
 SKIP_PIXI_SYNC="${SKIP_PIXI_SYNC:-0}"
 BOOTSTRAP_BACKEND="${BOOTSTRAP_BACKEND:-auto}"
 INSTALL_NIX="${INSTALL_NIX:-ask}"
+NPM_GLOBAL_MANIFEST="${REPO_ROOT}/config/npm/npm-global-packages.txt"
+NPM_GLOBAL_PREFIX="${HOME}/.local"
 
 log() {
   printf '[%s] %s\n' "${SCRIPT_NAME:-bootstrap}" "$*"
@@ -83,6 +85,10 @@ pixi_manifest_source() {
   esac
 }
 
+npm_global_prefix() {
+  printf '%s\n' "${NPM_GLOBAL_PREFIX}"
+}
+
 source_nix_profile() {
   local profile_script
 
@@ -109,6 +115,99 @@ ensure_nix_command() {
 
 nix_cmd() {
   run nix --extra-experimental-features "nix-command flakes" "$@"
+}
+
+has_sudo() {
+  command -v sudo >/dev/null 2>&1
+}
+
+can_use_sudo_non_interactively() {
+  has_sudo && sudo -n true >/dev/null 2>&1
+}
+
+has_interactive_tty() {
+  [[ -t 0 && -t 1 ]]
+}
+
+linux_has_systemd() {
+  [[ -d /run/systemd/system ]] || command -v systemctl >/dev/null 2>&1
+}
+
+linux_selinux_disabled() {
+  local selinux_state=""
+
+  if [[ ! -e /sys/fs/selinux/enforce ]] \
+    && ! command -v getenforce >/dev/null 2>&1 \
+    && ! command -v sestatus >/dev/null 2>&1
+  then
+    return 0
+  fi
+
+  if command -v getenforce >/dev/null 2>&1; then
+    selinux_state="$(getenforce 2>/dev/null || true)"
+  elif command -v sestatus >/dev/null 2>&1; then
+    selinux_state="$(sestatus 2>/dev/null | awk -F': *' '/SELinux status:/ { print $2; exit }')"
+  elif [[ -r /sys/fs/selinux/enforce ]]; then
+    case "$(cat /sys/fs/selinux/enforce 2>/dev/null || true)" in
+      0)
+        selinux_state="disabled"
+        ;;
+      1)
+        selinux_state="enabled"
+        ;;
+    esac
+  fi
+
+  case "${selinux_state}" in
+    Disabled|disabled)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+can_install_nix_multi_user() {
+  case "$(current_os)" in
+    Darwin)
+      if ! has_sudo; then
+        log "sudo is required for multi-user nix on macOS; falling back to pixi"
+        return 1
+      fi
+      ;;
+    Linux)
+      if ! has_sudo; then
+        log "sudo is required for multi-user nix on Linux; falling back to pixi"
+        return 1
+      fi
+
+      if ! linux_has_systemd; then
+        log "multi-user nix requires systemd on Linux; falling back to pixi"
+        return 1
+      fi
+
+      if ! linux_selinux_disabled; then
+        log "multi-user nix requires SELinux to be disabled on Linux; falling back to pixi"
+        return 1
+      fi
+      ;;
+    *)
+      log "Unsupported OS for nix installation: $(current_os)"
+      return 1
+      ;;
+  esac
+
+  if has_interactive_tty; then
+    return 0
+  fi
+
+  if can_use_sudo_non_interactively; then
+    return 0
+  fi
+
+  log "multi-user nix needs interactive sudo or passwordless sudo; falling back to pixi"
+  return 1
 }
 
 install_uv() {
@@ -211,6 +310,40 @@ sync_pixi_global() {
   run pixi global list
 }
 
+sync_npm_global_packages() {
+  local prefix
+  local package_spec
+  local packages=()
+
+  if [[ ! -r "${NPM_GLOBAL_MANIFEST}" ]]; then
+    log "npm global manifest not found: ${NPM_GLOBAL_MANIFEST}; skipping"
+    return 0
+  fi
+
+  while IFS= read -r package_spec || [[ -n "${package_spec}" ]]; do
+    if [[ "${package_spec}" =~ ^[[:space:]]*($|#) ]]; then
+      continue
+    fi
+
+    packages+=("${package_spec}")
+  done < "${NPM_GLOBAL_MANIFEST}"
+
+  if [[ "${#packages[@]}" -eq 0 ]]; then
+    log "npm global packages are not configured; skipping"
+    return 0
+  fi
+
+  if ! command -v npm >/dev/null 2>&1; then
+    log "npm is required to install npm global packages from ${NPM_GLOBAL_MANIFEST}"
+    return 1
+  fi
+
+  prefix="$(npm_global_prefix)"
+  run mkdir -p "${prefix}/bin"
+  log "Syncing npm global packages into ${prefix}: ${packages[*]}"
+  run npm install -g --prefix "${prefix}" "${packages[@]}"
+}
+
 confirm_install_nix() {
   local answer
 
@@ -228,7 +361,7 @@ confirm_install_nix() {
       fi
 
       while true; do
-        printf 'nix is not installed. Install nix and use Home Manager? [Y/n]: ' >&2
+        printf 'nix is not installed. Install multi-user nix and use Home Manager? [Y/n]: ' >&2
         read -r answer || return 1
         case "${answer}" in
           ""|y|Y|yes|YES)
@@ -250,10 +383,10 @@ confirm_install_nix() {
   esac
 }
 
-install_nix_single_user() {
-  log "Installing nix in single-user mode"
-  if ! run_shell 'curl -fsSL https://nixos.org/nix/install | sh -s -- --no-daemon'; then
-    log "nix installation failed. Falling back to pixi is available."
+install_nix_multi_user() {
+  log "Installing nix in multi-user mode"
+  if ! run_shell 'curl -fsSL https://nixos.org/nix/install | sh -s -- --daemon'; then
+    log "multi-user nix installation failed. Falling back to pixi is available."
     return 1
   fi
 
@@ -266,7 +399,9 @@ install_nix_single_user() {
   log "nix is now available: $(command -v nix)"
 }
 
-resolve_setup_backend() {
+resolve_backend() {
+  local command_name="${1:-setup}"
+
   source_nix_profile
 
   case "${BOOTSTRAP_BACKEND}" in
@@ -276,7 +411,17 @@ resolve_setup_backend() {
         return 0
       fi
 
-      if [[ "${SKIP_TOOL_INSTALL}" != "1" ]] && confirm_install_nix && install_nix_single_user; then
+      if [[ "${command_name}" == "update" ]]; then
+        log "nix is not installed; using pixi refresh path"
+        printf '%s\n' "pixi"
+        return 0
+      fi
+
+      if [[ "${SKIP_TOOL_INSTALL}" != "1" ]] \
+        && confirm_install_nix \
+        && can_install_nix_multi_user \
+        && install_nix_multi_user
+      then
         printf '%s\n' "nix"
         return 0
       fi
@@ -294,7 +439,12 @@ resolve_setup_backend() {
         return 1
       fi
 
-      if confirm_install_nix && install_nix_single_user; then
+      if [[ "${command_name}" == "update" ]]; then
+        log "BOOTSTRAP_BACKEND=nix but nix is not installed"
+        return 1
+      fi
+
+      if confirm_install_nix && can_install_nix_multi_user && install_nix_multi_user; then
         printf '%s\n' "nix"
         return 0
       fi
@@ -330,6 +480,7 @@ setup_with_pixi() {
 
   setup_links
   sync_pixi_global
+  sync_npm_global_packages
   log "Pixi-based setup completed. Restart the shell or run: source ~/.zshrc"
 }
 
@@ -345,6 +496,7 @@ setup_with_nix() {
   log "Applying Home Manager profile ${target}"
   nix_cmd build --out-link "${REPO_ROOT}/result" "${REPO_ROOT}#homeConfigurations.${target}.activationPackage"
   run "${REPO_ROOT}/result/activate"
+  sync_npm_global_packages
   log "Nix-based setup completed."
 }
 

@@ -10,7 +10,7 @@ source "${SCRIPT_DIR}/lib/bootstrap-common.sh"
 main() {
   local backend
 
-  backend="$(resolve_setup_backend)"
+  backend="$(resolve_backend update)"
   log "Selected update backend: ${backend}"
 
   case "${backend}" in
