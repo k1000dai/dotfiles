@@ -113,8 +113,17 @@ ensure_nix_command() {
   command -v nix >/dev/null 2>&1
 }
 
+ensure_home_manager_command() {
+  source_nix_profile
+  command -v home-manager >/dev/null 2>&1
+}
+
 nix_cmd() {
   run nix --extra-experimental-features "nix-command flakes" "$@"
+}
+
+home_manager_cmd() {
+  run home-manager --extra-experimental-features "nix-command flakes" "$@"
 }
 
 has_sudo() {
@@ -494,8 +503,14 @@ setup_with_nix() {
 
   target="$(flake_target)"
   log "Applying Home Manager profile ${target}"
-  nix_cmd build --out-link "${REPO_ROOT}/result" "${REPO_ROOT}#homeConfigurations.${target}.activationPackage"
-  run "${REPO_ROOT}/result/activate"
+  if ! ensure_home_manager_command; then
+    log "home-manager is required for nix-based setup but was not found"
+    log "Install Home Manager standalone with flakes, then rerun ./script/setup.sh"
+    log "Docs: https://github.com/nix-community/home-manager#installation"
+    return 1
+  fi
+
+  home_manager_cmd switch --flake "${REPO_ROOT}#${target}"
   sync_npm_global_packages
   log "Nix-based setup completed."
 }
@@ -505,6 +520,11 @@ update_with_pixi() {
 }
 
 update_with_nix() {
+  if ! ensure_home_manager_command; then
+    log "home-manager is required for nix-based update but was not found"
+    return 1
+  fi
+
   log "Updating flake input nixpkgs"
   nix_cmd flake update nixpkgs --flake "${REPO_ROOT}"
   setup_with_nix

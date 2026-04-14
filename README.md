@@ -4,11 +4,11 @@ Kohei の dotfiles です。
 
 現在の主入口は `script/setup.sh` です。セットアップ方式は次の優先順で自動選択されます。
 
-1. `nix` が入っていれば `home-manager` ベースで適用
+1. `nix` が入っていれば nix backend を選び、`home-manager switch --flake` で適用
 2. `nix` が入っていなければ、対応環境かつ `sudo` が使える場合に `multi-user nix` を install するか確認
 3. install を選ばない、または `multi-user nix` を使えない環境なら `pixi` ベースの非 sudo フローへ fallback
 
-`script/update.sh` は install を提案しません。`nix` 環境では `flake update + home-manager`、`nix` がなければ `pixi` 側の symlink 再生成と `pixi global sync` を実行します。
+`script/update.sh` は install を提案しません。`nix` 環境では `flake update + home-manager switch --flake`、`nix` がなければ `pixi` 側の symlink 再生成と `pixi global sync` を実行します。
 
 ## 方針
 
@@ -44,9 +44,9 @@ cd ~/.dotfiles
 ### nix backend
 
 - `nix` があればそれを使う
+- `home-manager` CLI が必要
 - `nix` がなければ、条件を満たすときだけ `multi-user nix` install を提案する
-- `homeConfigurations.<target>.activationPackage` を build
-- `result/activate` を実行して Home Manager 設定を反映
+- `home-manager switch --flake ".#<target>"` で Home Manager 設定を反映
 - repo 管理の npm global CLI を `~/.local` に同期する
 
 ### pixi backend
@@ -112,10 +112,16 @@ dotfiles や依存の更新反映は次です。
 
 backend ごとの動作は次の通りです。
 
-- `nix` backend: `nix flake update nixpkgs` のあと Home Manager を再適用
+- `nix` backend: `nix flake update nixpkgs` のあと `home-manager switch --flake` で再適用
 - `pixi` backend: symlink を再生成し、最新 manifest に合わせて `pixi global sync`
 
 `update.sh` は `nix` 未導入時に install 確認を出さず、そのまま `pixi` 側の更新へ進みます。
+
+## Home Manager 前提
+
+nix backend は `home-manager` CLI を前提にします。`setup.sh` 実行時に `home-manager` が見つからない場合は、Home Manager の standalone + flakes の公式手順を確認して導入してから再実行してください。
+
+- Home Manager installation: https://github.com/nix-community/home-manager#installation
 
 `pixi` 側で差分確認だけしたい場合:
 
