@@ -51,7 +51,8 @@
     pkgs.ninja
     pkgs.automake
     pkgs.autoconf
-
+    pkgs.zsh-autosuggestions
+    pkgs.zsh-autocomplete
     #net 
     pkgs.gping
     pkgs.nmap
