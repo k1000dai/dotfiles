@@ -64,21 +64,6 @@ alias gg="ghq get"
 # yazi
 alias finder="yazi"
 
-# gitのユーザー名を変更する
-function gitmain() {
-   git config --global user.name "k1000dai"
-   git config --global user.email "chiyodakku1000@gmail.com"
-}
-
-function gitmain_local() {
-    git config --local user.name "k1000dai"
-    git config --local user.email "chiyodakku1000@gmail.com"
-}
-
-# default git setting
-git config --global user.name "k1000dai"
-git config --global user.email "chiyodakku1000@gmail.com"
-git config --global ghq.root '~/src'
 
 # gitのユーザー名を出力する
 git_usr_name () {
