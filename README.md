@@ -2,17 +2,20 @@
 
 Kohei の dotfiles です。
 
-現在の推奨セットアップは、`nix/home-manager` を前提にせず、`pixi global install` と shell script による symbolic link 作成で完結させる非 sudo 運用です。
+現在の主入口は `script/setup.sh` です。セットアップ方式は次の優先順で自動選択されます。
 
-`flake.nix` / `home.nix` / `home-darwin.nix` / `home-linux.nix` は引き続き repo に残していますが、日常の bootstrap と反映は `script/hpc-setup.sh` を主に使います。
+1. `nix` が入っていれば `home-manager` ベースで適用
+2. `nix` が入っていなければ `nix` を single-user で install するか確認
+3. `nix` の install を選ばない、または sudo なしで install できない場合は `pixi` ベースの非 sudo フローへ fallback
+
+`script/update.sh` も同じ判定を使います。`nix` 環境では `flake update + home-manager`、`pixi` 環境では symlink 再生成と `pixi global sync` を実行します。
 
 ## 方針
 
-- CLI ツールの導入は `pixi global` を使う
-- Python 系の bootstrap には `uv` を使う
-- dotfiles の反映は symbolic link で行う
+- `nix` が使える環境では `home-manager` を優先する
+- 非 sudo 環境では `pixi global` と symlink で運用できるようにする
 - 既存ファイルに衝突した場合は `*.bak.<timestamp>` に退避してからリンクする
-- macOS / Linux で必要な差分は `pixi global` manifest を分けて吸収する
+- macOS / Linux の違いは `home-manager` または `pixi` manifest の差分で吸収する
 
 ## 対応環境
 
@@ -33,18 +36,26 @@ cd ~/.dotfiles
 初回セットアップは次を実行します。
 
 ```bash
-./script/hpc-setup.sh
+./script/setup.sh
 ```
 
-このスクリプトは次をまとめて行います。
+このスクリプトは backend に応じて次を行います。
 
-1. `uv` を `~/.local/bin` にインストール
-2. `pixi` を `~/.pixi/bin` にインストール
-3. dotfiles を `~/.config` や `~/.zshrc` / `~/.bashrc` へ symlink
-4. `~/.pixi/manifests/pixi-global.toml` を repo 内 manifest にリンク
-5. `pixi global sync` を実行して CLI ツール群を導入
+### nix backend
 
-セットアップ後は新しい shell を開くか、次を実行します。
+- `nix` があればそれを使う
+- `homeConfigurations.<target>.activationPackage` を build
+- `result/activate` を実行して Home Manager 設定を反映
+
+### pixi backend
+
+- `uv` を `~/.local/bin` に install
+- `pixi` を `~/.pixi/bin` に install
+- dotfiles を `~/.config` や `~/.zshrc` / `~/.bashrc` へ symlink
+- `~/.pixi/manifests/pixi-global.toml` を repo 内 manifest にリンク
+- `pixi global sync` を実行して CLI ツール群を導入
+
+セットアップ後は新しい shell を開くか、必要なら次を実行します。
 
 ```bash
 source ~/.zshrc
@@ -52,42 +63,53 @@ source ~/.zshrc
 
 ## よく使うオプション
 
+`nix` が未導入のとき、確認を出さずに `pixi` へ寄せたいとき:
+
+```bash
+INSTALL_NIX=0 ./script/setup.sh
+```
+
+常に `pixi` backend を使いたいとき:
+
+```bash
+BOOTSTRAP_BACKEND=pixi ./script/setup.sh
+```
+
 変更確認だけしたいとき:
 
 ```bash
-DRY_RUN=1 ./script/hpc-setup.sh
+DRY_RUN=1 BOOTSTRAP_BACKEND=pixi ./script/setup.sh
 ```
 
-`uv` / `pixi` 自体はすでに入っていて、再 install を避けたいとき:
+`uv` / `pixi` の再 install を避けたいとき:
 
 ```bash
-SKIP_TOOL_INSTALL=1 ./script/hpc-setup.sh
+SKIP_TOOL_INSTALL=1 BOOTSTRAP_BACKEND=pixi ./script/setup.sh
 ```
 
 link の再生成だけ先にやり、`pixi global sync` は後で回したいとき:
 
 ```bash
-SKIP_PIXI_SYNC=1 ./script/hpc-setup.sh
+SKIP_PIXI_SYNC=1 BOOTSTRAP_BACKEND=pixi ./script/setup.sh
 ```
 
-## main 更新後の反映
+## 更新の反映
 
-`main` を pull したあとに、manifest や dotfiles の変更をローカルへ反映したいときは、まず次を実行します。
+dotfiles や依存の更新反映は次です。
 
 ```bash
-SKIP_TOOL_INSTALL=1 ./script/hpc-setup.sh
+./script/update.sh
 ```
 
-これで以下が揃います。
+backend ごとの動作は次の通りです。
 
-- 追加・更新された dotfiles の symlink を反映
-- 最新の pixi global manifest を `~/.pixi/manifests/pixi-global.toml` に反映
-- manifest に合わせて `pixi global sync` を実行
+- `nix` backend: `nix flake update nixpkgs` のあと Home Manager を再適用
+- `pixi` backend: symlink を再生成し、最新 manifest に合わせて `pixi global sync`
 
-差分確認だけしたい場合は先にこちらです。
+`pixi` 側で差分確認だけしたい場合:
 
 ```bash
-DRY_RUN=1 SKIP_TOOL_INSTALL=1 ./script/hpc-setup.sh
+DRY_RUN=1 BOOTSTRAP_BACKEND=pixi ./script/update.sh
 ```
 
 ## pixi global 管理対象
@@ -113,7 +135,8 @@ manifest は次にあります。
 
 ## 主な管理対象
 
-- `script/hpc-setup.sh`: 非 sudo bootstrap と symlink 作成
+- `script/setup.sh`: `nix` 優先の統合 bootstrap
+- `script/update.sh`: backend に応じた更新反映
 - `config/pixi/manifests/`: `pixi global` 用 manifest
 - `config/nvim`: Neovim 設定
 - `config/lazygit`: Lazygit 設定
@@ -126,11 +149,11 @@ manifest は次にあります。
 
 ## Nix / Home Manager について
 
-Nix / Home Manager の設定ファイルは残しています。
+Nix / Home Manager の設定ファイルは引き続き repo に含めています。
 
 - `flake.nix`
 - `home.nix`
 - `home-darwin.nix`
 - `home-linux.nix`
 
-ただし、今後の通常運用ではこれらを bootstrap の必須経路にはしません。必要になったときだけ参照または再利用する前提です。
+`nix` が使える環境ではこちらが第一経路です。HPC や非 sudo 環境では `pixi` backend を明示的に使うか、`nix` install をスキップして fallback させます。

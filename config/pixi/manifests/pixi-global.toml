@@ -1,6 +1,6 @@
 version = 1
 
-# pixi / uv 自体は bootstrap の都合で script/hpc-setup.sh 側で先に入れます。
+# pixi / uv 自体は bootstrap の都合で script/setup.sh 側で先に入れます。
 # rust-analyzer / codex / fonts など、system 依存や別配布のものはここでは無理に束ねません。
 
 [envs.cli]

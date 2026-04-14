@@ -2,17 +2,25 @@
 
 set -euo pipefail
 
-case "$(uname -s)" in
-  Darwin)
-    flake_target="kohei"
-    ;;
-  Linux)
-    flake_target="kohei-linux"
-    ;;
-  *)
-    echo "Unsupported OS: $(uname -s)" >&2
-    exit 1
-    ;;
-esac
+SCRIPT_NAME="setup.sh"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=script/lib/bootstrap-common.sh
+source "${SCRIPT_DIR}/lib/bootstrap-common.sh"
 
-home-manager switch --flake ".#${flake_target}"
+main() {
+  local backend
+
+  backend="$(resolve_setup_backend)"
+  log "Selected bootstrap backend: ${backend}"
+
+  case "${backend}" in
+    nix)
+      setup_with_nix
+      ;;
+    pixi)
+      setup_with_pixi
+      ;;
+  esac
+}
+
+main "$@"

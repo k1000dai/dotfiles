@@ -2,21 +2,25 @@
 
 set -euo pipefail
 
-case "$(uname -s)" in
-  Darwin)
-    flake_target="kohei"
-    ;;
-  Linux)
-    flake_target="kohei-linux"
-    ;;
-  *)
-    echo "Unsupported OS: $(uname -s)" >&2
-    exit 1
-    ;;
-esac
+SCRIPT_NAME="update.sh"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=script/lib/bootstrap-common.sh
+source "${SCRIPT_DIR}/lib/bootstrap-common.sh"
 
-# Update the flake input.
-nix flake update nixpkgs
+main() {
+  local backend
 
-# Apply the matching Home Manager profile explicitly.
-home-manager switch --flake ".#${flake_target}"
+  backend="$(resolve_setup_backend)"
+  log "Selected update backend: ${backend}"
+
+  case "${backend}" in
+    nix)
+      update_with_nix
+      ;;
+    pixi)
+      update_with_pixi
+      ;;
+  esac
+}
+
+main "$@"

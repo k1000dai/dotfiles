@@ -1,0 +1,359 @@
+#!/usr/bin/env bash
+
+# shellcheck shell=bash
+
+SCRIPT_LIB_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd -- "${SCRIPT_LIB_DIR}/.." && pwd)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+
+TIMESTAMP="${TIMESTAMP:-$(date '+%Y%m%d-%H%M%S')}"
+DRY_RUN="${DRY_RUN:-0}"
+SKIP_TOOL_INSTALL="${SKIP_TOOL_INSTALL:-0}"
+SKIP_PIXI_SYNC="${SKIP_PIXI_SYNC:-0}"
+BOOTSTRAP_BACKEND="${BOOTSTRAP_BACKEND:-auto}"
+INSTALL_NIX="${INSTALL_NIX:-ask}"
+
+log() {
+  printf '[%s] %s\n' "${SCRIPT_NAME:-bootstrap}" "$*"
+}
+
+run() {
+  if [[ "${DRY_RUN}" == "1" ]]; then
+    printf '[dry-run]'
+    printf ' %q' "$@"
+    printf '\n'
+    return 0
+  fi
+
+  "$@"
+}
+
+run_shell() {
+  local command="$1"
+
+  if [[ "${DRY_RUN}" == "1" ]]; then
+    printf '[dry-run] %s\n' "$command"
+    return 0
+  fi
+
+  bash -lc "$command"
+}
+
+ensure_path() {
+  case ":${PATH}:" in
+    *":$1:"*) ;;
+    *)
+      PATH="$1:${PATH}"
+      export PATH
+      ;;
+  esac
+}
+
+current_os() {
+  uname -s
+}
+
+flake_target() {
+  case "$(current_os)" in
+    Darwin)
+      printf '%s\n' "kohei"
+      ;;
+    Linux)
+      printf '%s\n' "kohei-linux"
+      ;;
+    *)
+      log "Unsupported OS: $(current_os)"
+      return 1
+      ;;
+  esac
+}
+
+pixi_manifest_source() {
+  case "$(current_os)" in
+    Darwin)
+      printf '%s\n' "${REPO_ROOT}/config/pixi/manifests/pixi-global.toml"
+      ;;
+    Linux)
+      printf '%s\n' "${REPO_ROOT}/config/pixi/manifests/pixi-global-linux.toml"
+      ;;
+    *)
+      log "Unsupported OS for pixi manifest: $(current_os)"
+      return 1
+      ;;
+  esac
+}
+
+source_nix_profile() {
+  local profile_script
+
+  if command -v nix >/dev/null 2>&1; then
+    return 0
+  fi
+
+  for profile_script in \
+    "${HOME}/.nix-profile/etc/profile.d/nix.sh" \
+    "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
+  do
+    if [[ -r "${profile_script}" ]]; then
+      # shellcheck disable=SC1090
+      . "${profile_script}"
+      break
+    fi
+  done
+}
+
+ensure_nix_command() {
+  source_nix_profile
+  command -v nix >/dev/null 2>&1
+}
+
+nix_cmd() {
+  run nix --extra-experimental-features "nix-command flakes" "$@"
+}
+
+install_uv() {
+  if command -v uv >/dev/null 2>&1; then
+    log "uv is already installed: $(command -v uv)"
+    return 0
+  fi
+
+  log "Installing uv into ${HOME}/.local/bin"
+  run_shell 'curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="$HOME/.local/bin" sh'
+  ensure_path "${HOME}/.local/bin"
+}
+
+install_pixi() {
+  if command -v pixi >/dev/null 2>&1; then
+    log "pixi is already installed: $(command -v pixi)"
+    return 0
+  fi
+
+  log "Installing pixi into ${HOME}/.pixi/bin"
+  run_shell 'curl -fsSL https://pixi.sh/install.sh | env PIXI_HOME="$HOME/.pixi" PIXI_BIN_DIR="$HOME/.pixi/bin" PIXI_NO_PATH_UPDATE=1 sh'
+  ensure_path "${HOME}/.pixi/bin"
+}
+
+backup_target() {
+  local target="$1"
+  local backup_path="${target}.bak.${TIMESTAMP}"
+
+  if [[ -e "${target}" || -L "${target}" ]]; then
+    log "Backing up ${target} -> ${backup_path}"
+    run mv "${target}" "${backup_path}"
+  fi
+}
+
+link_path() {
+  local source_path="$1"
+  local target_path="$2"
+
+  if [[ ! -e "${source_path}" && ! -L "${source_path}" ]]; then
+    log "Skipping missing source: ${source_path}"
+    return 0
+  fi
+
+  run mkdir -p "$(dirname "${target_path}")"
+
+  if [[ -L "${target_path}" ]]; then
+    local current_source
+    current_source="$(readlink "${target_path}")"
+    if [[ "${current_source}" == "${source_path}" ]]; then
+      log "Link already exists: ${target_path}"
+      return 0
+    fi
+  fi
+
+  if [[ -e "${target_path}" || -L "${target_path}" ]]; then
+    backup_target "${target_path}"
+  fi
+
+  log "Linking ${target_path} -> ${source_path}"
+  run ln -s "${source_path}" "${target_path}"
+}
+
+setup_links() {
+  local manifest_source
+  manifest_source="$(pixi_manifest_source)"
+
+  link_path "${REPO_ROOT}/.bashrc" "${HOME}/.bashrc"
+  link_path "${REPO_ROOT}/.tmux.conf" "${HOME}/.tmux.conf"
+  link_path "${REPO_ROOT}/.zshrc" "${HOME}/.zshrc"
+  link_path "${REPO_ROOT}/.zshrc.d" "${HOME}/.zshrc.d"
+  link_path "${REPO_ROOT}/config/codex/AGENTS.md" "${HOME}/.codex/AGENTS.md"
+
+  link_path "${REPO_ROOT}/config/nvim" "${HOME}/.config/nvim"
+  link_path "${REPO_ROOT}/config/lazygit" "${HOME}/.config/lazygit"
+  link_path "${REPO_ROOT}/config/ghostty" "${HOME}/.config/ghostty"
+  link_path "${manifest_source}" "${HOME}/.pixi/manifests/pixi-global.toml"
+
+  case "$(current_os)" in
+    Darwin)
+      link_path "${REPO_ROOT}/config/yabai" "${HOME}/.config/yabai"
+      link_path "${REPO_ROOT}/config/skhd" "${HOME}/.config/skhd"
+      ;;
+    Linux)
+      :
+      ;;
+    *)
+      log "Unsupported OS for platform-specific links: $(current_os)"
+      ;;
+  esac
+}
+
+sync_pixi_global() {
+  if [[ "${SKIP_PIXI_SYNC}" == "1" ]]; then
+    log "Skipping pixi global sync because SKIP_PIXI_SYNC=1"
+    return 0
+  fi
+
+  log "Syncing pixi global environments from ${HOME}/.pixi/manifests/pixi-global.toml"
+  run pixi global sync
+  run pixi global list
+}
+
+confirm_install_nix() {
+  local answer
+
+  case "${INSTALL_NIX}" in
+    1|true|TRUE|yes|YES|y|Y)
+      return 0
+      ;;
+    0|false|FALSE|no|NO|n|N)
+      return 1
+      ;;
+    ask)
+      if [[ ! -t 0 ]]; then
+        log "nix is not installed and no interactive prompt is available; falling back to pixi"
+        return 1
+      fi
+
+      while true; do
+        printf 'nix is not installed. Install nix and use Home Manager? [Y/n]: ' >&2
+        read -r answer || return 1
+        case "${answer}" in
+          ""|y|Y|yes|YES)
+            return 0
+            ;;
+          n|N|no|NO)
+            return 1
+            ;;
+          *)
+            printf 'Please answer y or n.\n' >&2
+            ;;
+        esac
+      done
+      ;;
+    *)
+      log "Unsupported INSTALL_NIX value: ${INSTALL_NIX}"
+      return 1
+      ;;
+  esac
+}
+
+install_nix_single_user() {
+  log "Installing nix in single-user mode"
+  if ! run_shell 'curl -fsSL https://nixos.org/nix/install | sh -s -- --no-daemon'; then
+    log "nix installation failed. Falling back to pixi is available."
+    return 1
+  fi
+
+  source_nix_profile
+  if ! command -v nix >/dev/null 2>&1; then
+    log "nix installer completed but nix is not available in the current shell"
+    return 1
+  fi
+
+  log "nix is now available: $(command -v nix)"
+}
+
+resolve_setup_backend() {
+  source_nix_profile
+
+  case "${BOOTSTRAP_BACKEND}" in
+    auto)
+      if ensure_nix_command; then
+        printf '%s\n' "nix"
+        return 0
+      fi
+
+      if [[ "${SKIP_TOOL_INSTALL}" != "1" ]] && confirm_install_nix && install_nix_single_user; then
+        printf '%s\n' "nix"
+        return 0
+      fi
+
+      printf '%s\n' "pixi"
+      ;;
+    nix)
+      if ensure_nix_command; then
+        printf '%s\n' "nix"
+        return 0
+      fi
+
+      if [[ "${SKIP_TOOL_INSTALL}" == "1" ]]; then
+        log "BOOTSTRAP_BACKEND=nix but nix is not installed and SKIP_TOOL_INSTALL=1"
+        return 1
+      fi
+
+      if confirm_install_nix && install_nix_single_user; then
+        printf '%s\n' "nix"
+        return 0
+      fi
+
+      log "BOOTSTRAP_BACKEND=nix was requested but nix could not be prepared"
+      return 1
+      ;;
+    pixi)
+      printf '%s\n' "pixi"
+      ;;
+    *)
+      log "Unsupported BOOTSTRAP_BACKEND value: ${BOOTSTRAP_BACKEND}"
+      return 1
+      ;;
+  esac
+}
+
+setup_with_pixi() {
+  ensure_path "${HOME}/.local/bin"
+  ensure_path "${HOME}/.pixi/bin"
+
+  if [[ "${SKIP_TOOL_INSTALL}" == "1" ]]; then
+    log "Skipping uv/pixi installation because SKIP_TOOL_INSTALL=1"
+  else
+    install_uv
+    install_pixi
+  fi
+
+  if ! command -v pixi >/dev/null 2>&1; then
+    log "pixi command is required but was not found on PATH"
+    return 1
+  fi
+
+  setup_links
+  sync_pixi_global
+  log "Pixi-based setup completed. Restart the shell or run: source ~/.zshrc"
+}
+
+setup_with_nix() {
+  local target
+
+  if ! ensure_nix_command; then
+    log "nix is required for nix-based setup but was not found"
+    return 1
+  fi
+
+  target="$(flake_target)"
+  log "Applying Home Manager profile ${target}"
+  nix_cmd build --out-link "${REPO_ROOT}/result" "${REPO_ROOT}#homeConfigurations.${target}.activationPackage"
+  run "${REPO_ROOT}/result/activate"
+  log "Nix-based setup completed."
+}
+
+update_with_pixi() {
+  setup_with_pixi
+}
+
+update_with_nix() {
+  log "Updating flake input nixpkgs"
+  nix_cmd flake update nixpkgs --flake "${REPO_ROOT}"
+  setup_with_nix
+}
