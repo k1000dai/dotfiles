@@ -1,118 +1,136 @@
 # dotfiles
 
-Kohei の Home Manager ベースの dotfiles です。
+Kohei の dotfiles です。
 
-macOS と Linux の設定を同じ flake で管理し、エディタ、shell 周辺ツール、tmux、lazygit、Ghostty などの設定を Home Manager から適用します。
+現在の推奨セットアップは、`nix/home-manager` を前提にせず、`pixi global install` と shell script による symbolic link 作成で完結させる非 sudo 運用です。
+
+`flake.nix` / `home.nix` / `home-darwin.nix` / `home-linux.nix` は引き続き repo に残していますが、日常の bootstrap と反映は `script/hpc-setup.sh` を主に使います。
+
+## 方針
+
+- CLI ツールの導入は `pixi global` を使う
+- Python 系の bootstrap には `uv` を使う
+- dotfiles の反映は symbolic link で行う
+- 既存ファイルに衝突した場合は `*.bak.<timestamp>` に退避してからリンクする
+- macOS / Linux で必要な差分は `pixi global` manifest を分けて吸収する
 
 ## 対応環境
 
-| 環境 | system | Home Manager profile |
+| 環境 | system | pixi manifest |
 | --- | --- | --- |
-| macOS Apple Silicon | `aarch64-darwin` | `kohei` / `kohei-darwin` |
-| Ubuntu / Linux | `x86_64-linux` | `kohei-linux` |
+| macOS Apple Silicon | `aarch64-darwin` | `config/pixi/manifests/pixi-global.toml` |
+| Ubuntu / Linux | `x86_64-linux` | `config/pixi/manifests/pixi-global-linux.toml` |
 
-## 前提
+## 初回セットアップ
 
-Nix の flake 機能を使います。
-
-まだ Nix を入れていない場合は、先に Nix をインストールしてください。インストール済みかは次で確認できます。
+この repo を clone して移動します。
 
 ```bash
-nix --version
-```
-~/.config/nix/nix.confに
-
-`experimental-features = nix-command flakes`
-を追加して、flake を有効にしてください。
-
-
-## セットアップ
-### Home Manager をインストールする
-
-```bash
-nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
-nix-channel --update
-nix-shell '<home-manager>' -A install
-```
-
-このリポジトリを clone して移動します。
-
-```bash
-git clone  ~git@github.com:k1000dai/dotfiles.git /.dotfiles
+git clone git@github.com:k1000dai/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
 ```
 
-セットアップは次を実行します。
+初回セットアップは次を実行します。
 
 ```bash
-./script/setup.sh
+./script/hpc-setup.sh
 ```
 
-`script/setup.sh` は `uname` で OS を判定し、macOS では `.#kohei`、Ubuntu / Linux では `.#kohei-linux` を自動で選びます。
+このスクリプトは次をまとめて行います。
 
-直接 `home-manager` を実行したい場合は、次の profile を使ってください。
+1. `uv` を `~/.local/bin` にインストール
+2. `pixi` を `~/.pixi/bin` にインストール
+3. dotfiles を `~/.config` や `~/.zshrc` / `~/.bashrc` へ symlink
+4. `~/.pixi/manifests/pixi-global.toml` を repo 内 manifest にリンク
+5. `pixi global sync` を実行して CLI ツール群を導入
+
+セットアップ後は新しい shell を開くか、次を実行します。
 
 ```bash
-home-manager switch --flake .#kohei
-home-manager switch --flake .#kohei-linux
+source ~/.zshrc
 ```
 
-`kohei` は macOS 向けの profile です。明示したい場合は `kohei-darwin` も同じ macOS 設定を指します。
+## よく使うオプション
 
-
-`home-manager switch --flake .` のように profile 名を省略すると、環境によって推論される名前が変わることがあります。このリポジトリでは、意図しない profile を選ばないように `.#kohei` または `.#kohei-linux` を明示する運用にしています。
-
-
-## flake.lock を更新する
-
-`nixpkgs` input を更新して、そのまま Home Manager を適用したいときは、次を実行します。
+変更確認だけしたいとき:
 
 ```bash
-./script/update.sh
+DRY_RUN=1 ./script/hpc-setup.sh
 ```
 
-`script/update.sh` も OS を判定して、対応する Home Manager profile を自動で apply します。
-
-同じ処理を手動で行う場合は、次のように実行できます。
+`uv` / `pixi` 自体はすでに入っていて、再 install を避けたいとき:
 
 ```bash
-nix flake update nixpkgs
-home-manager build --flake .#kohei
-home-manager switch --flake .#kohei
+SKIP_TOOL_INSTALL=1 ./script/hpc-setup.sh
 ```
 
-Linux の場合は `.#kohei-linux` に置き換えてください。
+link の再生成だけ先にやり、`pixi global sync` は後で回したいとき:
+
+```bash
+SKIP_PIXI_SYNC=1 ./script/hpc-setup.sh
+```
+
+## main 更新後の反映
+
+`main` を pull したあとに、manifest や dotfiles の変更をローカルへ反映したいときは、まず次を実行します。
+
+```bash
+SKIP_TOOL_INSTALL=1 ./script/hpc-setup.sh
+```
+
+これで以下が揃います。
+
+- 追加・更新された dotfiles の symlink を反映
+- 最新の pixi global manifest を `~/.pixi/manifests/pixi-global.toml` に反映
+- manifest に合わせて `pixi global sync` を実行
+
+差分確認だけしたい場合は先にこちらです。
+
+```bash
+DRY_RUN=1 SKIP_TOOL_INSTALL=1 ./script/hpc-setup.sh
+```
+
+## pixi global 管理対象
+
+manifest は次にあります。
+
+- `config/pixi/manifests/pixi-global.toml`
+- `config/pixi/manifests/pixi-global-linux.toml`
+
+現在は主に以下を `pixi global` で管理します。
+
+- shell / CLI: `fzf`, `ripgrep`, `bat`, `zoxide`, `tmux`, `yazi`, `wget`
+- git 周辺: `git`, `git-lfs`, `gh`, `ghq`, `lazygit`
+- Python 周辺: `python`, `uv`, `ruff`
+- editor / LSP 周辺: `nvim`, `node`, `typescript-language-server`, `clangd`, `vscode-langservers-extracted`
+
+次のようなものは `pixi global` manifest にはまだ寄せていません。
+
+- `rust-analyzer`
+- `codex`
+- フォントや GUI アプリ
+- sudo や system package manager が必要なもの
 
 ## 主な管理対象
 
-- `home.nix`: macOS / Linux 共通の Home Manager 設定
-- `home-darwin.nix`: macOS 固有の設定
-- `home-linux.nix`: Linux 固有の設定
+- `script/hpc-setup.sh`: 非 sudo bootstrap と symlink 作成
+- `config/pixi/manifests/`: `pixi global` 用 manifest
 - `config/nvim`: Neovim 設定
 - `config/lazygit`: Lazygit 設定
 - `config/ghostty`: Ghostty 設定
 - `config/yabai`: macOS の yabai 設定
 - `config/skhd`: macOS の skhd 設定
+- `.bashrc`: Bash 設定
+- `.zshrc`, `.zshrc.d`: shell 設定
 - `.tmux.conf`: tmux 設定
 
-## よく使う流れ
+## Nix / Home Manager について
 
-設定を編集します。
+Nix / Home Manager の設定ファイルは残しています。
 
-```bash
-nvim home.nix
-```
+- `flake.nix`
+- `home.nix`
+- `home-darwin.nix`
+- `home-linux.nix`
 
-設定をそのまま適用するときは、次を実行します。
-
-```bash
-./script/setup.sh
-```
-
-`nixpkgs` を更新してから適用したいときは次を使います。
-
-```bash
-./script/update.sh
-```
-
-手動で build / switch する場合は、macOS では `.#kohei`、Linux では `.#kohei-linux` を指定します。
+ただし、今後の通常運用ではこれらを bootstrap の必須経路にはしません。必要になったときだけ参照または再利用する前提です。
