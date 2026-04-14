@@ -1,0 +1,16 @@
+# example for ~/.sbuildrc.  (Also see /etc/sbuild/sbuild.conf.)  -*- Perl -*-
+
+$chroot_mode = 'schroot';
+$schroot = 'schroot';
+
+$run_lintian = 1;
+$lintian_opts = ['-E', '-v', '-i', '-I'];
+
+$run_autopkgtest = 1;
+$autopkgtest_root_args = '';
+$autopkgtest_opts = ['--', 'schroot', 'unstable-amd64-sbuild'];
+
+$purge_build_directory = 'always';
+
+# don't remove this, Perl needs it:
+1;

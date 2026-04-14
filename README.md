@@ -53,7 +53,7 @@ cd ~/.dotfiles
 
 - `uv` を `~/.local/bin` に install
 - `pixi` を `~/.pixi/bin` に install
-- dotfiles を `~/.config` や `~/.zshrc` / `~/.bashrc` へ symlink
+- dotfiles を `~/.config` や `~/.zshrc` / `~/.bashrc` / `~/.gitconfig` へ symlink
 - `~/.pixi/manifests/pixi-global.toml` を repo 内 manifest にリンク
 - `pixi global sync` を実行して CLI ツール群を導入
 - repo 管理の npm global CLI を `~/.local` に同期する
@@ -173,6 +173,7 @@ manifest は次にあります。
 - `config/yabai`: macOS の yabai 設定
 - `config/skhd`: macOS の skhd 設定
 - `.bashrc`: Bash 設定
+- `.gitconfig`: Git 設定
 - `.zshrc`, `.zshrc.d`: shell 設定
 - `.tmux.conf`: tmux 設定
 

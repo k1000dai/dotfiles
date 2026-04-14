@@ -284,6 +284,7 @@ setup_links() {
   manifest_source="$(pixi_manifest_source)"
 
   link_path "${REPO_ROOT}/.bashrc" "${HOME}/.bashrc"
+  link_path "${REPO_ROOT}/.gitconfig" "${HOME}/.gitconfig"
   link_path "${REPO_ROOT}/.tmux.conf" "${HOME}/.tmux.conf"
   link_path "${REPO_ROOT}/.zshrc" "${HOME}/.zshrc"
   link_path "${REPO_ROOT}/.zshrc.d" "${HOME}/.zshrc.d"

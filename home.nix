@@ -62,6 +62,7 @@
     ".bashrc".source = ./.bashrc;
     ".zshrc".source = ./.zshrc;
     ".zshrc.d".source = ./.zshrc.d;
+    ".sbuildrc".source = ./sbuildrc;
   };
 
   xdg.configFile = {
@@ -81,7 +82,7 @@
     settings = {
       user.name = "k1000dai";
       user.email = "chiyodakku1000@gmail.com";
-      ghq.root = "~/src";
+      ghq.root = "~/codes";
     };
   };
 

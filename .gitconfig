@@ -1,0 +1,17 @@
+[user]
+	name = k1000dai
+	email = chiyodakku1000@gmail.com
+[credential]
+	helper = cache
+[alias]
+    st = status -s
+    l = log --oneline --graph
+    al = log --oneline --graph --all
+    s = switch
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+[ghq]
+	root = ~/codes
