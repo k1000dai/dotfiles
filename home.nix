@@ -12,6 +12,7 @@
     pkgs.bat
     pkgs.zoxide
     pkgs.pueue
+    pkgs.fd
 
     # file manager
     pkgs.yazi
@@ -24,7 +25,7 @@
     pkgs.tree-sitter
     pkgs.bash-language-server
     pkgs.clang-tools
-    pkgs.dockerfile-language-server-nodejs
+    pkgs.dockerfile-language-server
     pkgs.go
     pkgs.gopls
     pkgs.lua-language-server

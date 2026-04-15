@@ -5,8 +5,8 @@ version = 1
 
 [envs.cli]
 channels = ["conda-forge"]
-dependencies = { bat = "*", cmake = "*", dvc = "*", ffmpeg = "*", fzf = "*", gh = "*", git = "*", git-lfs = "*", lazygit = "*", ripgrep = "*", tmux = "*", wget = "*", yazi = "*", zoxide = "*" }
-exposed = { bat = "bat", cmake = "cmake", dvc = "dvc", ffmpeg = "ffmpeg", ffprobe = "ffprobe", fzf = "fzf", gh = "gh", git = "git", git-lfs = "git-lfs", lazygit = "lazygit", rg = "rg", tmux = "tmux", wget = "wget", ya = "ya", yazi = "yazi", zoxide = "zoxide" }
+dependencies = { bat = "*", cmake = "*", dvc = "*", ffmpeg = "*", fzf = "*", gh = "*", git = "*", git-lfs = "*", lazygit = "*", ripgrep = "*", tmux = "*", wget = "*", yazi = "*", zoxide = "*", fd="*" , pueue = "*" , codex = "*" }
+exposed = { bat = "bat", cmake = "cmake", dvc = "dvc", ffmpeg = "ffmpeg", ffprobe = "ffprobe", fzf = "fzf", gh = "gh", git = "git", git-lfs = "git-lfs", lazygit = "lazygit", rg = "rg", tmux = "tmux", wget = "wget", ya = "ya", yazi = "yazi", zoxide = "zoxide", fd = "fd" , pueue = "pueue" , codex = "codex" }
 
 [envs.go-ghq]
 channels = ["conda-forge"]

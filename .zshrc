@@ -45,10 +45,10 @@ alias clang++="clang++ -std=c++17 -Wall -Wextra -Wconversion"
 alias clang="clang -std=c99 -Wall -Wextra"
 alias la='ls -a'
 alias ll='ls -l'
+alias l="ls"
 alias ...='cd ../..'
 alias nv='nvim'
 alias vim='nvim'
-alias l="ls"
 alias ga="git add"
 alias reboot_shell="exec $SHELL -l"
 alias reload="source ~/.zshrc"
@@ -61,8 +61,9 @@ alias venv="source .venv/bin/activate"
 alias lg="lazygit"
 alias gg="ghq get"
 
-# yazi
 alias finder="yazi"
+alias cat="bat --color=always --style=header,grid"
+alias find="fd"
 
 
 # gitのユーザー名を出力する
