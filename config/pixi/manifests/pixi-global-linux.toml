@@ -7,7 +7,7 @@ version = 1
 channels = ["conda-forge"]
 # tmux 3.6 exits unexpectedly on attach in our Linux pixi environment.
 dependencies = { bat = "*", cmake = "*", dvc = "*", ffmpeg = "*", fzf = "*", gh = "*", git = "*", git-lfs = "*", lazygit = "*", ripgrep = "*", tmux = "==3.5a", wget = "*", yazi = "*", zoxide = "*", fd-find="*" , pueue = "*" , codex = "*" }
-exposed = { bat = "bat", cmake = "cmake", dvc = "dvc", ffmpeg = "ffmpeg", ffprobe = "ffprobe", fzf = "fzf", gh = "gh", git = "git", git-lfs = "git-lfs", lazygit = "lazygit", rg = "rg", tmux = "tmux", wget = "wget", ya = "ya", yazi = "yazi", zoxide = "zoxide" ,fd-find = "fd-find", pueue = "pueue" , codex = "codex" }
+exposed = { bat = "bat", cmake = "cmake", dvc = "dvc", ffmpeg = "ffmpeg", ffprobe = "ffprobe", fzf = "fzf", gh = "gh", git = "git", git-lfs = "git-lfs", lazygit = "lazygit", rg = "rg", tmux = "tmux", wget = "wget", ya = "ya", yazi = "yazi", zoxide = "zoxide" ,fd-find = "fd", pueue = "pueue" , codex = "codex" }
 
 [envs.go-ghq]
 channels = ["conda-forge"]
@@ -33,3 +33,8 @@ exposed = { bash-language-server = "bash-language-server", clangd = "clangd", cl
 channels = ["conda-forge"]
 dependencies = { wl-clipboard-rs = "*", xclip = "*", xsel = "*" }
 exposed = { wl-copy = "wl-copy", wl-paste = "wl-paste", xclip = "xclip", xsel = "xsel" }
+
+[envs.fd-find]
+channels = ["conda-forge"]
+dependencies = { fd-find = "*" }
+exposed = { fd = "fd" }
