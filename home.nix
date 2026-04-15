@@ -22,12 +22,20 @@
     pkgs.unar
     pkgs.graphviz
     pkgs.tree-sitter
+    pkgs.bash-language-server
     pkgs.clang-tools
+    pkgs.dockerfile-language-server-nodejs
+    pkgs.go
+    pkgs.gopls
+    pkgs.lua-language-server
+    pkgs.marksman
     pkgs.ruff
+    pkgs.taplo
     pkgs.ty
     pkgs.typescript
     pkgs.typescript-language-server
     pkgs.vscode-langservers-extracted
+    pkgs.yaml-language-server
     pkgs.rust-analyzer
     pkgs.nodejs
 
@@ -84,7 +92,7 @@
     settings = {
       user.name = "k1000dai";
       user.email = "chiyodakku1000@gmail.com";
-      ghq.root = "~/codes";
+      ghq.root = "~/codes/ghq";
     };
   };
 

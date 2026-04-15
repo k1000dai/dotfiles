@@ -26,8 +26,8 @@ exposed = { lua = "lua", luarocks = "luarocks", node = "node", npm = "npm", nvim
 
 [envs.lsp]
 channels = ["conda-forge"]
-dependencies = { clang-tools = "*", nodejs = "*", ty = "*", typescript = "*", typescript-language-server = "*", vscode-langservers-extracted = "*" }
-exposed = { clangd = "clangd", clang-format = "clang-format", clang-tidy = "clang-tidy", tsc = "tsc", tsserver = "tsserver", ty = "ty", typescript-language-server = "typescript-language-server", vscode-css-language-server = "vscode-css-language-server", vscode-eslint-language-server = "vscode-eslint-language-server", vscode-html-language-server = "vscode-html-language-server", vscode-json-language-server = "vscode-json-language-server" }
+dependencies = { bash-language-server = "*", clang-tools = "*", dockerfile-language-server-nodejs = "*", go = "*", gopls = "*", lua-language-server = "*", marksman = "*", nodejs = "*", taplo = "*", ty = "*", typescript = "*", typescript-language-server = "*", vscode-langservers-extracted = "*", yaml-language-server = "*" }
+exposed = { bash-language-server = "bash-language-server", clangd = "clangd", clang-format = "clang-format", clang-tidy = "clang-tidy", docker-langserver = "docker-langserver", go = "go", gopls = "gopls", lua-language-server = "lua-language-server", marksman = "marksman", taplo = "taplo", tsc = "tsc", tsserver = "tsserver", ty = "ty", typescript-language-server = "typescript-language-server", vscode-css-language-server = "vscode-css-language-server", vscode-eslint-language-server = "vscode-eslint-language-server", vscode-html-language-server = "vscode-html-language-server", vscode-json-language-server = "vscode-json-language-server", yaml-language-server = "yaml-language-server" }
 
 [envs.linux-clipboard]
 channels = ["conda-forge"]

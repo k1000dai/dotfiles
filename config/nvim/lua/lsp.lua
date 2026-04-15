@@ -3,13 +3,20 @@
 -- Capabilities for nvim-cmp
 local capabilities = require("cmp_nvim_lsp").default_capabilities()
 local servers = {
+  { name = "bashls", executable = "bash-language-server" },
   { name = "clangd", executable = "clangd" },
+  { name = "dockerls", executable = "docker-langserver" },
+  { name = "gopls", executable = "gopls" },
+  { name = "lua_ls", executable = "lua-language-server" },
+  { name = "marksman", executable = "marksman" },
   { name = "ty", executable = "ty" },
   { name = "ruff", executable = "ruff" },
+  { name = "taplo", executable = "taplo" },
   { name = "ts_ls", executable = "typescript-language-server" },
   { name = "html", executable = "vscode-html-language-server" },
   { name = "cssls", executable = "vscode-css-language-server" },
   { name = "jsonls", executable = "vscode-json-language-server" },
+  { name = "yamlls", executable = "yaml-language-server" },
   { name = "rust_analyzer", executable = "rust-analyzer" },
 }
 
