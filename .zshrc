@@ -96,6 +96,9 @@ compinit -u
 zstyle ':completion:*:*:docker:*' option-stacking yes
 zstyle ':completion:*:*:docker-*:*' option-stacking yes
 
+# cargo
+source_if_exists "$HOME/.cargo/env"
+
 function ghq-fzf() {
   local src repo_root repo_dir
   repo_root="$(ghq root)" || return 1

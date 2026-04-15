@@ -6,7 +6,6 @@
 
   home.packages = [
     # shell
-    pkgs.zsh
     pkgs.fzf
     pkgs.ripgrep
     pkgs.bat
@@ -60,8 +59,6 @@
     pkgs.ninja
     pkgs.automake
     pkgs.autoconf
-    pkgs.zsh-autosuggestions
-    pkgs.zsh-autocomplete
     #net 
     pkgs.gping
     pkgs.nmap
@@ -116,4 +113,11 @@
     ];
   };
 
+  programs.zsh = {
+      enable = true;
+      enableCompletion = true;
+      autosuggestion.enable = true;
+      historySubstringSearch.enable = true;
+      syntaxHighlighting.enable = true;
+  };
 }
