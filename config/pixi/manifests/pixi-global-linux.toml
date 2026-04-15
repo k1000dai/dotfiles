@@ -6,8 +6,8 @@ version = 1
 [envs.cli]
 channels = ["conda-forge"]
 # tmux 3.6 exits unexpectedly on attach in our Linux pixi environment.
-dependencies = { bat = "*", cmake = "*", dvc = "*", ffmpeg = "*", fzf = "*", gh = "*", git = "*", git-lfs = "*", lazygit = "*", ripgrep = "*", tmux = "==3.5a", wget = "*", yazi = "*", zoxide = "*",fd="*" , pueue = "*" , codex = "*" }
-exposed = { bat = "bat", cmake = "cmake", dvc = "dvc", ffmpeg = "ffmpeg", ffprobe = "ffprobe", fzf = "fzf", gh = "gh", git = "git", git-lfs = "git-lfs", lazygit = "lazygit", rg = "rg", tmux = "tmux", wget = "wget", ya = "ya", yazi = "yazi", zoxide = "zoxide" ,fd = "fd", pueue = "pueue" , codex = "codex" }
+dependencies = { bat = "*", cmake = "*", dvc = "*", ffmpeg = "*", fzf = "*", gh = "*", git = "*", git-lfs = "*", lazygit = "*", ripgrep = "*", tmux = "==3.5a", wget = "*", yazi = "*", zoxide = "*", fd-find="*" , pueue = "*" , codex = "*" }
+exposed = { bat = "bat", cmake = "cmake", dvc = "dvc", ffmpeg = "ffmpeg", ffprobe = "ffprobe", fzf = "fzf", gh = "gh", git = "git", git-lfs = "git-lfs", lazygit = "lazygit", rg = "rg", tmux = "tmux", wget = "wget", ya = "ya", yazi = "yazi", zoxide = "zoxide" ,fd-find = "fd-find", pueue = "pueue" , codex = "codex" }
 
 [envs.go-ghq]
 channels = ["conda-forge"]
