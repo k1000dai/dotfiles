@@ -68,7 +68,7 @@
     ".tmux.conf".source = ./.tmux.conf;
     ".codex/AGENTS.md".source = ./config/codex/AGENTS.md;
     ".bashrc".source = ./.bashrc;
-    ".zshrc".source = ./.zshrc;
+    ".zshrc_extra".source = ./.zshrc;
     ".zshrc.d".source = ./.zshrc.d;
     ".sbuildrc".source = ./sbuildrc;
   };
@@ -119,5 +119,8 @@
       autosuggestion.enable = true;
       historySubstringSearch.enable = true;
       syntaxHighlighting.enable = true;
+      initContent = ''
+        source .zshrc_extra
+      '';
   };
 }
