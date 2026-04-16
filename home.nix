@@ -120,7 +120,7 @@
       historySubstringSearch.enable = true;
       syntaxHighlighting.enable = true;
       initContent = ''
-        source .zshrc_extra
+        source $HOME/.zshrc_extra
       '';
   };
 }
