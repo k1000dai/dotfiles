@@ -64,6 +64,7 @@ alias gg="ghq get"
 alias finder="yazi"
 alias cat="bat --color=always --style=header,grid"
 alias find="fd"
+alias ping="gping"
 
 
 # gitのユーザー名を出力する
