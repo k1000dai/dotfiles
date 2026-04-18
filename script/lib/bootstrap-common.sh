@@ -16,7 +16,7 @@ NPM_GLOBAL_MANIFEST="${REPO_ROOT}/config/npm/npm-global-packages.txt"
 NPM_GLOBAL_PREFIX="${HOME}/.local"
 
 log() {
-  printf '[%s] %s\n' "${SCRIPT_NAME:-bootstrap}" "$*"
+  printf '[%s] %s\n' "${SCRIPT_NAME:-bootstrap}" "$*" >&2
 }
 
 run() {
@@ -72,14 +72,27 @@ flake_target() {
 
 pixi_manifest_source() {
   case "$(current_os)" in
-    Darwin)
-      printf '%s\n' "${REPO_ROOT}/config/pixi/manifests/pixi-global.toml"
-      ;;
     Linux)
       printf '%s\n' "${REPO_ROOT}/config/pixi/manifests/pixi-global-linux.toml"
       ;;
     *)
       log "Unsupported OS for pixi manifest: $(current_os)"
+      return 1
+      ;;
+  esac
+}
+
+pixi_backend_supported() {
+  case "$(current_os)" in
+    Linux)
+      return 0
+      ;;
+    Darwin)
+      log "pixi backend is not supported on macOS in this repository; use nix/home-manager instead"
+      return 1
+      ;;
+    *)
+      log "Unsupported OS for pixi backend: $(current_os)"
       return 1
       ;;
   esac
@@ -439,9 +452,14 @@ resolve_backend() {
       fi
 
       if [[ "${command_name}" == "update" ]]; then
-        log "nix is not installed; using pixi refresh path"
-        printf '%s\n' "pixi"
-        return 0
+        if pixi_backend_supported; then
+          log "nix is not installed; using pixi refresh path"
+          printf '%s\n' "pixi"
+          return 0
+        fi
+
+        log "nix is not installed and no supported fallback backend is available"
+        return 1
       fi
 
       if [[ "${SKIP_TOOL_INSTALL}" != "1" ]] \
@@ -453,7 +471,13 @@ resolve_backend() {
         return 0
       fi
 
-      printf '%s\n' "pixi"
+      if pixi_backend_supported; then
+        printf '%s\n' "pixi"
+        return 0
+      fi
+
+      log "nix is not installed and pixi fallback is unavailable on this platform"
+      return 1
       ;;
     nix)
       if ensure_nix_command; then
@@ -480,6 +504,11 @@ resolve_backend() {
       return 1
       ;;
     pixi)
+      if ! pixi_backend_supported; then
+        log "BOOTSTRAP_BACKEND=pixi was requested on an unsupported platform"
+        return 1
+      fi
+
       printf '%s\n' "pixi"
       ;;
     *)
@@ -490,6 +519,10 @@ resolve_backend() {
 }
 
 setup_with_pixi() {
+  if ! pixi_backend_supported; then
+    return 1
+  fi
+
   ensure_path "${HOME}/.local/bin"
   ensure_path "${HOME}/.pixi/bin"
 
