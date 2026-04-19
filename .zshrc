@@ -62,7 +62,7 @@ alias lg="lazygit"
 alias gg="ghq get"
 
 alias finder="yazi"
-alias cat="bat --color=always --style=header,grid"
+alias cat="bat"
 alias find="fd"
 alias ping="gping"
 
