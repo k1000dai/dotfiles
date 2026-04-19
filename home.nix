@@ -49,9 +49,9 @@
     # python
     pkgs.uv
     pkgs.pixi
-
-    # coding agent
-    pkgs.codex
+    
+    # use codex for agent management(npm install -g @openai/codex for faster updates)
+    #pkgs.codex
 
     # other
     pkgs.dvc
@@ -59,6 +59,8 @@
     pkgs.ninja
     pkgs.automake
     pkgs.autoconf
+    pkgs.parquet-tools
+
     #net 
     pkgs.gping
     pkgs.nmap
