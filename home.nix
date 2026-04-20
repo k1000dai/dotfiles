@@ -51,7 +51,7 @@
     pkgs.pixi
     
     # use codex for agent management(npm install -g @openai/codex for faster updates)
-    #pkgs.codex
+    pkgs.codex
 
     # other
     pkgs.dvc
