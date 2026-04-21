@@ -54,7 +54,6 @@
     pkgs.codex
 
     # other
-    pkgs.dvc
     pkgs.cmake
     pkgs.ninja
     pkgs.automake
