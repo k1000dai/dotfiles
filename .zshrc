@@ -110,6 +110,9 @@ function ghq-fzf() {
 }
 
 zle -N ghq-fzf
+
+
+bindkey -e
 bindkey '^g' ghq-fzf
 
 # env
