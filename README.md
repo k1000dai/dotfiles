@@ -143,7 +143,7 @@ manifest は次にあります。
 
 現在は主に以下を `pixi global` で管理します。
 
-- shell / CLI: `fzf`, `ripgrep`, `bat`, `zoxide`, `tmux`, `yazi`, `wget`, `codex`, `pueue`, `fd-find`
+- shell / CLI: `fzf`, `ripgrep`, `bat`, `zoxide`, `tmux`, `yazi`, `wget`, `pueue`, `fd-find`
 - git 周辺: `git`, `git-lfs`, `gh`, `ghq`, `lazygit`
 - Python 周辺: `python`, `uv`, `ruff`
 - editor / LSP 周辺: `nvim`, `node`, `bash-language-server`, `dockerfile-language-server`, `go`, `gopls`, `lua-language-server`, `marksman`, `taplo`, `ty`, `typescript-language-server`, `clangd`, `vscode-langservers-extracted`, `yaml-language-server`
@@ -156,7 +156,7 @@ manifest は次にあります。
 
 ## npm global 管理対象
 
-`npm -g install` でしか入れられない CLI は次で管理します。
+`npm -g install` で管理したい CLI は次で管理します。
 
 - `config/npm/npm-global-packages.txt`
 
@@ -164,6 +164,7 @@ manifest は次にあります。
 
 現在の管理対象:
 
+- `@openai/codex@latest` (`codex` は更新追従を優先して npm 側で管理)
 - `happy`
 
 ## 主な管理対象

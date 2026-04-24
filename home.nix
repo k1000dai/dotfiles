@@ -50,9 +50,6 @@
     pkgs.uv
     pkgs.pixi
     
-    # use codex for agent management(npm install -g @openai/codex for faster updates)
-    pkgs.codex
-
     # other
     pkgs.cmake
     pkgs.ninja
