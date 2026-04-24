@@ -4,6 +4,7 @@ Before editing, look for:
 
 - `README.md`
 - `AGENTS.md`
+    - documentation for agents, tools, and processes. If there is no `AGENTS.md` in repository, you need to create to document the agents, tools, and processes you used in this repository for future reference. Also, if you need to use any tools, processes, or agents that are not documented in `AGENTS.md`, please add them to the file for future reference.
 - package/build configuration files
 - test configuration
 - lint/format/typecheck configuration
