@@ -1,5 +1,5 @@
 # Repository discovery
-
+If you are in a new git repository, start by understanding the project structure, dependencies, and conventions. This will help you make informed decisions about where to make changes and how to maintain consistency with the existing codebase. If not a git repository, ignore this section.
 Before editing, look for:
 
 - `README.md`
