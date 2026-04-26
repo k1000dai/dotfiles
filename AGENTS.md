@@ -3,7 +3,7 @@
 * The primary entrypoint is `./script/setup.sh`.
 * `script/setup.sh` uses `BOOTSTRAP_BACKEND=auto` by default.
 * If `nix` is already available, `script/setup.sh` should prefer the nix/home-manager path.
-* If `nix` is not available, `script/setup.sh` asks whether to install multi-user nix. Prefer the official `--daemon` install path when the machine is eligible.
+* If `nix` is not available and the machine is eligible, `script/setup.sh` asks whether to install multi-user nix. Prefer the official `--daemon` install path when the machine is eligible.
 * On macOS, multi-user nix requires `sudo`.
 * On Linux, only attempt multi-user nix when `sudo` is available, `systemd` is present, and SELinux is disabled. Otherwise fall back to pixi.
 * Do not auto-install single-user nix in the default flow.
@@ -15,7 +15,7 @@
 * `happy` is currently managed through that npm global manifest.
 * Dotfiles are linked into `$HOME`, and conflicting files are backed up with `*.bak.<timestamp>`.
 * The pixi global manifest is managed in-repo under `config/pixi/manifests/`.
-* On macOS use `config/pixi/manifests/pixi-global.toml`.
+* This repository's pixi backend is Linux-only; macOS should use nix/home-manager.
 * On Linux use `config/pixi/manifests/pixi-global-linux.toml`.
 
 ## What Codex Should Do After main Updates
