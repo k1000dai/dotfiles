@@ -150,6 +150,7 @@ manifest は次にあります。
 
 次のようなものは `pixi global` manifest にはまだ寄せていません。
 
+- `unar` (`conda-forge` に同名 package がないため。必要なら nix 側か system package、または `p7zip` / `libarchive` 系の代替 CLI を使う)
 - `rust-analyzer`
 - フォントや GUI アプリ
 - sudo や system package manager が必要なもの

@@ -1,6 +1,3 @@
-
-
-
 # exec zsh if possible
 if [ -t 1 ] && [ -x "$(command -v zsh)" ] && [ -z "$ZSH_VERSION" ]; then
     export SHELL="$(command -v zsh)"
