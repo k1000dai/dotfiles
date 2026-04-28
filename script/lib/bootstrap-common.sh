@@ -303,6 +303,7 @@ setup_links() {
   link_path "${REPO_ROOT}/.zshrc.d" "${HOME}/.zshrc.d"
   link_path "${REPO_ROOT}/config/codex/AGENTS.md" "${HOME}/.codex/AGENTS.md"
   link_path "${REPO_ROOT}/config/claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
+  link_path "${REPO_ROOT}/config/claude/settings.json" "${HOME}/.claude/settings.json"
 
   link_path "${REPO_ROOT}/config/nvim" "${HOME}/.config/nvim"
   link_path "${REPO_ROOT}/config/lazygit" "${HOME}/.config/lazygit"
