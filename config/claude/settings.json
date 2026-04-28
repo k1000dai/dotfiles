@@ -1,14 +1,15 @@
 {
+  "permissions": {
+    "defaultMode": "auto"
+  },
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
     "code-review@claude-plugins-official": true,
-    "slack@claude-plugins-official": true
+    "slack@claude-plugins-official": true,
+    "github@claude-plugins-official": true
   },
   "effortLevel": "xhigh",
   "theme": "dark-ansi",
   "autoCompactEnabled": true,
-  "skipAutoPermissionPrompt": true,
-  "permissions": {
-    "defaultMode": "auto"
-  }
+  "skipAutoPermissionPrompt": true
 }
