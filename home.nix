@@ -45,6 +45,7 @@
     pkgs.ghq
     pkgs.gh
     pkgs.lazygit
+    pkgs.pre-commit
 
     # python
     pkgs.uv
