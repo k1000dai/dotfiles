@@ -1,4 +1,3 @@
 # npm 側で最新追従したい CLI をここで管理する
 @openai/codex@latest
 @anthropic-ai/claude-code@latest
-happy

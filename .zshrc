@@ -64,7 +64,7 @@ alias gg="ghq get"
 alias finder="yazi"
 alias find="fd"
 alias ping="gping"
-
+alias clc="claude"
 
 # gitのユーザー名を出力する
 git_usr_name () {
