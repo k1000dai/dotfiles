@@ -12,6 +12,8 @@
     pkgs.zoxide
     pkgs.pueue
     pkgs.fd
+    pkgs.eza
+    pkgs.python312Packages.huggingface-hub
 
     # file manager
     pkgs.yazi
@@ -70,6 +72,7 @@
     ".bashrc".source = ./.bashrc;
     ".zshrc_extra".source = ./.zshrc;
     ".zshrc.d".source = ./.zshrc.d;
+    ".zsh/git-prompt.sh".source = ./.zsh/git-prompt.sh;
     ".sbuildrc".source = ./sbuildrc;
   };
 

@@ -11,5 +11,6 @@
   "effortLevel": "xhigh",
   "theme": "dark-ansi",
   "autoCompactEnabled": true,
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "agentPushNotifEnabled": true
 }

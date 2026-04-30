@@ -301,6 +301,7 @@ setup_links() {
   link_path "${REPO_ROOT}/.tmux.conf" "${HOME}/.tmux.conf"
   link_path "${REPO_ROOT}/.zshrc" "${HOME}/.zshrc"
   link_path "${REPO_ROOT}/.zshrc.d" "${HOME}/.zshrc.d"
+  link_path "${REPO_ROOT}/.zsh/git-prompt.sh" "${HOME}/.zsh/git-prompt.sh"
   link_path "${REPO_ROOT}/config/codex/AGENTS.md" "${HOME}/.codex/AGENTS.md"
   link_path "${REPO_ROOT}/config/claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
   link_path "${REPO_ROOT}/config/claude/settings.json" "${HOME}/.claude/settings.json"

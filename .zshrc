@@ -86,7 +86,22 @@ if (( $+commands[zoxide] )); then
 fi
 
 # Git
-source_if_exists "$HOME/.zsh/git-prompt.sh"
+# Try the user-managed copy first, then common system locations so that
+# __git_ps1 is defined even on environments without the vendored file.
+if ! source_if_exists "$HOME/.zsh/git-prompt.sh"; then
+  for _git_prompt in \
+    /opt/homebrew/etc/bash_completion.d/git-prompt.sh \
+    /opt/homebrew/share/git-core/contrib/completion/git-prompt.sh \
+    /usr/local/etc/bash_completion.d/git-prompt.sh \
+    /usr/share/git/completion/git-prompt.sh \
+    /usr/share/git-core/contrib/completion/git-prompt.sh \
+    /etc/bash_completion.d/git-prompt; do
+    if source_if_exists "$_git_prompt"; then
+      break
+    fi
+  done
+  unset _git_prompt
+fi
 fpath=("$HOME/.zsh" "$HOME/.zsh/completion" $fpath)
 zstyle ':completion:*:*:git:*' script ~/.zsh/git-completion.bash
 GIT_PS1_SHOWDIRTYSTATE=true
