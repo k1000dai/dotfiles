@@ -6,6 +6,7 @@
 
   home.packages = [
     # shell
+    pkgs.zsh
     pkgs.fzf
     pkgs.ripgrep
     pkgs.bat

@@ -143,7 +143,7 @@ manifest は次にあります。
 
 現在は主に以下を `pixi global` で管理します。
 
-- shell / CLI: `fzf`, `ripgrep`, `bat`, `zoxide`, `tmux`, `yazi`, `wget`, `pueue`, `fd-find`
+- shell / CLI: `zsh`, `fzf`, `ripgrep`, `bat`, `zoxide`, `tmux`, `yazi`, `wget`, `pueue`, `fd-find`
 - git 周辺: `git`, `git-lfs`, `gh`, `ghq`, `lazygit`
 - Python 周辺: `python`, `uv`, `ruff`
 - editor / LSP 周辺: `nvim`, `node`, `bash-language-server`, `dockerfile-language-server`, `go`, `gopls`, `lua-language-server`, `marksman`, `taplo`, `ty`, `typescript-language-server`, `clangd`, `vscode-langservers-extracted`, `yaml-language-server`
