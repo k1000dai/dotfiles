@@ -9,7 +9,7 @@
       pkgs.gnused
       pkgs.gawk
       pkgs.typst
-      pkgs.openmpi
+      #pkgs.openmpi
   ];
 
   home.homeDirectory = "/Users/${config.home.username}";

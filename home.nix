@@ -15,6 +15,7 @@
     pkgs.fd
     pkgs.eza
     pkgs.python312Packages.huggingface-hub
+    pkgs.tree
 
     # file manager
     pkgs.yazi
@@ -53,12 +54,14 @@
     # python
     pkgs.uv
     pkgs.pixi
-    
-    # other
+
+    # c/c++
     pkgs.cmake
     pkgs.ninja
     pkgs.automake
     pkgs.autoconf
+
+    # other
     pkgs.parquet-tools
 
     #net 
