@@ -1,3 +1,14 @@
+# Make user-installed shells (e.g. pixi global) findable before exec zsh.
+for _bashrc_shell_dir in "$HOME/.pixi/bin" "$HOME/.local/bin"; do
+    [ -d "$_bashrc_shell_dir" ] || continue
+    case ":$PATH:" in
+        *":$_bashrc_shell_dir:"*) ;;
+        *) PATH="$_bashrc_shell_dir${PATH:+:$PATH}" ;;
+    esac
+done
+unset _bashrc_shell_dir
+export PATH
+
 # exec zsh if possible
 if [ -t 1 ] && [ -x "$(command -v zsh)" ] && [ -z "$ZSH_VERSION" ]; then
     export SHELL="$(command -v zsh)"
