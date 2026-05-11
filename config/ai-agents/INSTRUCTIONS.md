@@ -8,6 +8,7 @@ Before editing, look for:
 - lint/format/typecheck configuration
 - CI configuration
 - existing examples of similar code
+- Do `pre-commit run --all-files` after making changes to check for formatting, linting, and type errors.
 
 # Tool
 ## Tool for Python Engineering
