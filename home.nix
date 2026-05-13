@@ -16,6 +16,7 @@
     pkgs.eza
     pkgs.python312Packages.huggingface-hub
     pkgs.tree
+    pkgs.delta
 
     # file manager
     pkgs.yazi
