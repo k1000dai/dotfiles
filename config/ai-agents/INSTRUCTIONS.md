@@ -56,3 +56,6 @@ In final responses, include:
 - Tests/checks run
 - Anything not run and why
 - Any remaining risks or follow-up work
+
+# Team AGENT
+- use AGENT TEAMS. default team number is 4. but you can change the number based on the project size and complexity.
