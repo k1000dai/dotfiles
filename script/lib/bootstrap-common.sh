@@ -387,6 +387,45 @@ sync_npm_global_packages() {
   run npm install -g --prefix "${prefix}" "${packages[@]}"
 }
 
+sync_claude_code() {
+  local prefix
+  local legacy_pkg_dir
+  local legacy_bin
+
+  if [[ "${SKIP_TOOL_INSTALL}" == "1" ]]; then
+    log "Skipping claude-code native installer because SKIP_TOOL_INSTALL=1"
+    return 0
+  fi
+
+  prefix="$(npm_global_prefix)"
+  legacy_pkg_dir="${prefix}/lib/node_modules/@anthropic-ai/claude-code"
+  legacy_bin="${prefix}/bin/claude"
+
+  # Anthropic ships a native installer at https://claude.ai/install.sh which
+  # installs into ~/.local/bin/claude and is the officially recommended path.
+  # If a previous npm-based install of @anthropic-ai/claude-code lingers, drop
+  # it first so the symlink at ~/.local/bin/claude does not collide.
+  if [[ -d "${legacy_pkg_dir}" ]] && command -v npm >/dev/null 2>&1; then
+    log "Removing legacy npm-installed @anthropic-ai/claude-code from ${prefix}"
+    run npm uninstall -g --prefix "${prefix}" @anthropic-ai/claude-code || true
+  fi
+
+  if [[ -L "${legacy_bin}" ]]; then
+    local target
+    target="$(readlink "${legacy_bin}" || true)"
+    case "${target}" in
+      *node_modules/@anthropic-ai/claude-code/*)
+        log "Removing stale npm claude symlink at ${legacy_bin}"
+        run rm -f "${legacy_bin}"
+        ;;
+    esac
+  fi
+
+  log "Installing/updating claude code via official native installer"
+  run_shell 'curl -fsSL https://claude.ai/install.sh | bash'
+  ensure_path "${HOME}/.local/bin"
+}
+
 confirm_install_nix() {
   local answer
 
@@ -545,6 +584,7 @@ setup_with_pixi() {
   sync_pixi_global
   sync_neovim_plugins
   sync_npm_global_packages
+  sync_claude_code
   log "Pixi-based setup completed. Restart the shell or run: source ~/.zshrc"
 }
 
@@ -567,6 +607,7 @@ setup_with_nix() {
 
   home_manager_cmd switch --flake "${REPO_ROOT}#${target}"
   sync_npm_global_packages
+  sync_claude_code
   log "Nix-based setup completed."
 }
 

@@ -13,6 +13,7 @@
 * npm-only CLI tools are managed separately in `config/npm/npm-global-packages.txt`.
 * For npm-only packages, do not use npm's default global prefix. Sync them with `npm install -g --prefix "$HOME/.local"` so pixi or nix managed Node environments are not mutated.
 * `happy` is currently managed through that npm global manifest.
+* `@anthropic-ai/claude-code` is intentionally NOT managed via npm. Anthropic recommends the native installer (`curl -fsSL https://claude.ai/install.sh | bash`), so it is installed by `sync_claude_code` in `script/lib/bootstrap-common.sh` and runs as part of both `setup.sh` and `update.sh`. Do not re-add it to `config/npm/npm-global-packages.txt`.
 * Dotfiles are linked into `$HOME`, and conflicting files are backed up with `*.bak.<timestamp>`.
 * The pixi global manifest is managed in-repo under `config/pixi/manifests/`.
 * This repository's pixi backend is Linux-only; macOS should use nix/home-manager.

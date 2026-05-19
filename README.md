@@ -168,6 +168,8 @@ manifest は次にあります。
 - `@openai/codex@latest` (`codex` は更新追従を優先して npm 側で管理)
 - `happy`
 
+`@anthropic-ai/claude-code` は Anthropic 公式が curl native installer を推奨しているため npm 側ではなく `script/lib/bootstrap-common.sh` の `sync_claude_code` (`curl -fsSL https://claude.ai/install.sh | bash`) で `~/.local/bin/claude` に導入されます。`setup.sh` / `update.sh` の両方から自動で同期されます。
+
 ## 主な管理対象
 
 - `script/setup.sh`: `nix` 優先の統合 bootstrap

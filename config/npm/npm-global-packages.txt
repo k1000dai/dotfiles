@@ -1,3 +1,4 @@
 # npm 側で最新追従したい CLI をここで管理する
+# 注意: `@anthropic-ai/claude-code` は公式推奨の curl native installer に移行済み
+# (`script/lib/bootstrap-common.sh` の sync_claude_code を参照)
 @openai/codex@latest
-@anthropic-ai/claude-code@latest
