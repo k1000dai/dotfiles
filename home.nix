@@ -64,6 +64,7 @@
 
     # other
     pkgs.parquet-tools
+    pkgs.codex
 
     #net 
     pkgs.gping
