@@ -38,7 +38,7 @@ run_shell() {
     return 0
   fi
 
-  bash -lc "$command"
+  bash -c "$command"
 }
 
 ensure_path() {

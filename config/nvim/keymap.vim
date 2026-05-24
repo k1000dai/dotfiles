@@ -35,6 +35,3 @@ nnoremap j gj
 nnoremap k gk
 vnoremap j gj
 vnoremap k gk
-
-" 補完は nvim-cmp で設定 (lua/plugins.lua)
-
