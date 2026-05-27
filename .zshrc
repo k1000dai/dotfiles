@@ -49,8 +49,7 @@ alias l="ls"
 alias ...='cd ../..'
 alias nv='nvim'
 alias vim='nvim'
-alias ga="git add"
-alias reboot_shell="exec $SHELL -l"
+alias reboot_shell='exec "$SHELL" -l'
 alias reload="source ~/.zshrc"
 alias ga="git add"
 alias gb="git branch"
@@ -104,7 +103,7 @@ fi
 fpath=("$HOME/.zsh" "$HOME/.zsh/completion" $fpath)
 zstyle ':completion:*:*:git:*' script ~/.zsh/git-completion.bash
 GIT_PS1_SHOWDIRTYSTATE=true
-compinit -u
+compinit
 
 # docker
 zstyle ':completion:*:*:docker:*' option-stacking yes

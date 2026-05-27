@@ -14,6 +14,8 @@
 
   home.homeDirectory = "/Users/${config.home.username}";
 
+  programs.git.settings.credential.helper = "osxkeychain";
+
   home.file = {
       ".claude/settings.json".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/claude/settings.json";
   };

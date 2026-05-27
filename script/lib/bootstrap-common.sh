@@ -45,6 +45,12 @@ safe_curl_run() {
   local url="$1"
   local label="$2"
   shift 2
+
+  if [[ "${DRY_RUN}" == "1" ]]; then
+    printf '[dry-run] curl -fsSL %s | bash %s\n' "$url" "$*"
+    return 0
+  fi
+
   local tmpfile
   tmpfile="$(mktemp)"
   trap 'rm -f "$tmpfile"' RETURN

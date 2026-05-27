@@ -1,19 +1,20 @@
 {
-    "permissions": {
-        "defaultMode": "auto"
-    },
-    "enabledPlugins": {
-        "superpowers@claude-plugins-official": true,
-        "code-review@claude-plugins-official": true,
-        "slack@claude-plugins-official": true,
-        "github@claude-plugins-official": true
-    },
-    "effortLevel": "xhigh",
-    "theme": "dark-ansi",
-    "autoCompactEnabled": true,
-    "skipAutoPermissionPrompt": true,
-    "agentPushNotifEnabled": true,
-    "env": {
-        "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
-    }
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "defaultMode": "auto"
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "slack@claude-plugins-official": true,
+    "github@claude-plugins-official": true,
+    "lua-lsp@claude-plugins-official": true
+  },
+  "effortLevel": "xhigh",
+  "theme": "dark-ansi",
+  "autoCompactEnabled": true,
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true
 }

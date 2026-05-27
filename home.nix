@@ -96,10 +96,17 @@
   programs.home-manager.enable = true;
   programs.git = {
     enable = true;
+    lfs.enable = true;
     settings = {
       user.name = "k1000dai";
       user.email = "chiyodakku1000@gmail.com";
       ghq.root = "~/codes/ghq";
+      alias = {
+        st = "status -s";
+        l = "log --oneline --graph";
+        al = "log --oneline --graph --all";
+        s = "switch";
+      };
     };
   };
 

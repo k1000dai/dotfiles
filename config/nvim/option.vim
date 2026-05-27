@@ -42,7 +42,7 @@ set noswapfile " swapファイルを保存しない
 set noundofile " undoファイルを保存しない
 set nobackup " backupを保存しない
 set nowritebackup "writebackupを保存しない
-set viminfo= " viminfoファイルに保存しない
+set shada= " viminfoファイルに保存しない
 
 " ######################## 外部変更の自動検知 ########################
 set autoread " 外部でファイルが変更されたら自動で読み込む
@@ -59,8 +59,6 @@ augroup auto-checktime
 augroup END
 
 " ######################## その他 ########################
-filetype plugin indent on " ファイルタイプの検索とプラグインをONにする
-set encoding=utf-8 " 文字コードをutf-8にする
 " ファイル保存時にディレクトリがなかったら作成するか問う
 augroup vimrc-auto-mkdir
   autocmd!
@@ -68,7 +66,7 @@ augroup vimrc-auto-mkdir
   
   function! s:auto_mkdir(dir, force)
     if !isdirectory(a:dir) && (a:force || input(printf('"%s" does not exist. Create? [y/N]', a:dir)) =~? '^y\%[es]$')
-      call mkdir(iconv(a:dir, &encoding, &termencoding), 'p')
+      call mkdir(a:dir, 'p')
     endif
   endfunction
 augroup END
