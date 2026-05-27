@@ -41,6 +41,23 @@ run_shell() {
   bash -c "$command"
 }
 
+safe_curl_run() {
+  local url="$1"
+  local label="$2"
+  shift 2
+  local tmpfile
+  tmpfile="$(mktemp)"
+  trap 'rm -f "$tmpfile"' RETURN
+
+  if ! curl -fsSL "$url" -o "$tmpfile"; then
+    log "Failed to download ${label} installer from ${url}"
+    return 1
+  fi
+
+  log "Downloaded ${label} installer ($(wc -c < "$tmpfile" | tr -d ' ') bytes)"
+  bash "$tmpfile" "$@"
+}
+
 ensure_path() {
   case ":${PATH}:" in
     *":$1:"*) ;;
@@ -239,7 +256,7 @@ install_uv() {
   fi
 
   log "Installing uv into ${HOME}/.local/bin"
-  run_shell 'curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="$HOME/.local/bin" sh'
+  UV_INSTALL_DIR="$HOME/.local/bin" safe_curl_run 'https://astral.sh/uv/install.sh' 'uv'
   ensure_path "${HOME}/.local/bin"
 }
 
@@ -250,7 +267,7 @@ install_pixi() {
   fi
 
   log "Installing pixi into ${HOME}/.pixi/bin"
-  run_shell 'curl -fsSL https://pixi.sh/install.sh | env PIXI_HOME="$HOME/.pixi" PIXI_BIN_DIR="$HOME/.pixi/bin" PIXI_NO_PATH_UPDATE=1 sh'
+  PIXI_HOME="$HOME/.pixi" PIXI_BIN_DIR="$HOME/.pixi/bin" PIXI_NO_PATH_UPDATE=1 safe_curl_run 'https://pixi.sh/install.sh' 'pixi'
   ensure_path "${HOME}/.pixi/bin"
 }
 
@@ -422,7 +439,7 @@ sync_claude_code() {
   fi
 
   log "Installing/updating claude code via official native installer"
-  run_shell 'curl -fsSL https://claude.ai/install.sh | bash'
+  safe_curl_run 'https://claude.ai/install.sh' 'claude-code'
   ensure_path "${HOME}/.local/bin"
 }
 
@@ -467,7 +484,7 @@ confirm_install_nix() {
 
 install_nix_multi_user() {
   log "Installing nix in multi-user mode"
-  if ! run_shell 'curl -fsSL https://nixos.org/nix/install | sh -s -- --daemon'; then
+  if ! safe_curl_run 'https://nixos.org/nix/install' 'nix' --daemon; then
     log "multi-user nix installation failed. Falling back to pixi is available."
     return 1
   fi

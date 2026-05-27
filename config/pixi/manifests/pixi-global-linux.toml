@@ -21,7 +21,7 @@ exposed = { python = "python", python3 = "python3", ruff = "ruff", uv = "uv", uv
 
 [envs.neovim]
 channels = ["conda-forge"]
-dependencies = { lua = "*", luarocks = "*", neovim = "*", nvim = "*", nodejs = "*", python = "3.12.*", tree-sitter-cli = "*" }
+dependencies = { lua = "*", luarocks = "*", nvim = "*", nodejs = "*", python = "3.12.*", tree-sitter-cli = "*" }
 exposed = { lua = "lua", luarocks = "luarocks", node = "node", npm = "npm", nvim = "nvim", tree-sitter = "tree-sitter" }
 
 [envs.lsp]
