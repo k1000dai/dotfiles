@@ -63,7 +63,6 @@ alias lg="lazygit"
 alias gg="ghq get"
 
 alias finder="yazi"
-alias find="fd"
 alias clc="claude"
 
 # gitのユーザー名を出力する

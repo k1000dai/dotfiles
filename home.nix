@@ -22,7 +22,7 @@
     pkgs.yazi
 
     pkgs.tmux
-    pkgs.ffmpeg
+    pkgs.ffmpeg_7
     pkgs.wget
     pkgs.unar
     pkgs.graphviz
