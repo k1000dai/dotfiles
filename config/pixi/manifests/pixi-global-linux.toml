@@ -6,8 +6,8 @@ version = 1
 [envs.cli]
 channels = ["conda-forge"]
 # tmux 3.6 exits unexpectedly on attach in our Linux pixi environment.
-dependencies = { bat = "*", cmake = "*", dvc = "*", fzf = "*", gh = "*", git = "*", git-lfs = "*", lazygit = "*", ripgrep = "*", tmux = "==3.5a", wget = "*", yazi = "*", zoxide = "*", fd-find="*" , pueue = "*", zsh = "*" }
-exposed = { bat = "bat", cmake = "cmake", dvc = "dvc", fzf = "fzf", gh = "gh", git = "git", git-lfs = "git-lfs", lazygit = "lazygit", rg = "rg", tmux = "tmux", wget = "wget", ya = "ya", yazi = "yazi", zoxide = "zoxide" ,fd-find = "fd", pueue = "pueue", pueued = "pueued", zsh = "zsh" }
+dependencies = { bat = "*", cmake = "*", direnv = "*", dvc = "*", fzf = "*", gh = "*", git = "*", git-lfs = "*", lazygit = "*", ripgrep = "*", tmux = "==3.5a", wget = "*", yazi = "*", zoxide = "*", fd-find="*" , pueue = "*", zsh = "*" }
+exposed = { bat = "bat", cmake = "cmake", direnv = "direnv", dvc = "dvc", fzf = "fzf", gh = "gh", git = "git", git-lfs = "git-lfs", lazygit = "lazygit", rg = "rg", tmux = "tmux", wget = "wget", ya = "ya", yazi = "yazi", zoxide = "zoxide" ,fd-find = "fd", pueue = "pueue", pueued = "pueued", zsh = "zsh" }
 
 # Separated from the cli env and pinned to 7.x to mirror the Nix/macOS side (pkgs.ffmpeg_7)
 # and keep ffmpeg 8 from constraining the shared cli solve.

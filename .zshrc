@@ -140,6 +140,11 @@ if (( $+commands[uv] )); then
   eval "$(uv generate-shell-completion zsh)"
 fi
 
+# direnv
+if (( $+commands[direnv] )); then
+  eval "$(direnv hook zsh)"
+fi
+
 source_if_exists "$HOME/.zsh/completion/uv"
 
 prepend_path "$HOME/.pixi/bin"

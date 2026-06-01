@@ -11,6 +11,7 @@
     pkgs.ripgrep
     pkgs.bat
     pkgs.zoxide
+    pkgs.direnv
     pkgs.pueue
     pkgs.fd
     pkgs.eza
