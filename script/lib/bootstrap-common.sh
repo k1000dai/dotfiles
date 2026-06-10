@@ -440,12 +440,18 @@ sync_claude_code() {
       *node_modules/@anthropic-ai/claude-code/*)
         log "Removing stale npm claude symlink at ${legacy_bin}"
         run rm -f "${legacy_bin}"
+        hash -r
         ;;
     esac
   fi
 
-  log "Installing/updating claude code via official native installer"
-  safe_curl_run 'https://claude.ai/install.sh' 'claude-code'
+  if command -v claude >/dev/null 2>&1; then
+    log "Updating claude code via claude update"
+    run claude update
+  else
+    log "Installing claude code via official native installer"
+    safe_curl_run 'https://claude.ai/install.sh' 'claude-code'
+  fi
   ensure_path "${HOME}/.local/bin"
 }
 
