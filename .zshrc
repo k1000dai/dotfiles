@@ -80,7 +80,7 @@ git_usr_name () {
 # zoxide
 if (( $+commands[zoxide] )); then
   eval "$(zoxide init zsh)"
-  alias cd="z"
+  alias cz="z"
 fi
 
 # Git
