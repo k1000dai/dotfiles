@@ -87,6 +87,7 @@
     "nvim".source = ./config/nvim;
     "lazygit".source = ./config/lazygit;
     "ghostty".source = ./config/ghostty;
+    "wezterm".source = ./config/wezterm;
   };
 
   home.sessionVariables = {
