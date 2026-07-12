@@ -1,0 +1,17 @@
+version = 1
+
+# File/inode quota が厳しい環境 (HPC など) 向けの最小 profile です。
+# PIXI_PROFILE=minimal のときに setup.sh / update.sh がこの manifest を選びます。
+#
+# 通常の pixi-global-linux.toml は env を用途別に分割するため
+# python (python/neovim/lsp) や nodejs (neovim/lsp) が複数 env に重複し、
+# その分ファイル数が増えます。
+# この minimal では neovim を動かす最小限と必須 CLI を単一の core env に統合し、
+# 共有依存 (python / nodejs / 共有ライブラリ) のコピーを 1 つに抑えます。
+#
+# pixi / uv 自体は bootstrap の都合で script/setup.sh 側で先に入れます。
+
+[envs.core]
+channels = ["conda-forge"]
+dependencies = { nvim = "*", nodejs = "*", tree-sitter-cli = "*", lua = "*", luarocks = "*", python = "3.12.*", lua-language-server = "*", git = "*", git-lfs = "*", ripgrep = "*", fd-find = "*", fzf = "*", bat = "*", zoxide = "*", zsh = "*", direnv = "*", lazygit = "*" }
+exposed = { nvim = "nvim", node = "node", npm = "npm", tree-sitter = "tree-sitter", lua = "lua", luarocks = "luarocks", lua-language-server = "lua-language-server", python = "python", python3 = "python3", git = "git", git-lfs = "git-lfs", rg = "rg", fd = "fd", fzf = "fzf", bat = "bat", zoxide = "zoxide", zsh = "zsh", direnv = "direnv", lazygit = "lazygit" }
