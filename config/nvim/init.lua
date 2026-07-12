@@ -1,7 +1,6 @@
 -- Main entry for Neovim config (lazy.nvim)
 
--- Load existing vimscript config (kept as-is for now)
-vim.cmd.runtime({ args = { "option.vim" }, bang = true })
+require("config.options")
 vim.cmd.runtime({ args = { "keymap.vim" }, bang = true })
 
 -- Matches previous init.vim
