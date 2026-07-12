@@ -1,7 +1,10 @@
 -- Main entry for Neovim config (lazy.nvim)
 
+-- leaderをスペースに変更(plugins.lua の keys 解決前に必要)
+vim.g.mapleader = " "
+
 require("config.options")
-vim.cmd.runtime({ args = { "keymap.vim" }, bang = true })
+require("config.keymaps")
 
 -- Matches previous init.vim
 vim.cmd.syntax("enable")
