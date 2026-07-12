@@ -1,7 +1,7 @@
 -- LSP Configuration (Neovim 0.11+)
 
--- Capabilities for nvim-cmp
-local capabilities = require("cmp_nvim_lsp").default_capabilities()
+-- Capabilities for blink.cmp
+local capabilities = require("blink.cmp").get_lsp_capabilities()
 local servers = {
   { name = "bashls", executable = "bash-language-server" },
   { name = "clangd", executable = "clangd" },

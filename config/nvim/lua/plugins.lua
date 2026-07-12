@@ -18,6 +18,7 @@ return {
     {
         "neovim/nvim-lspconfig",
         lazy = false,
+        dependencies = { "saghen/blink.cmp" },
         config = function()
             require("lsp")
         end,
@@ -25,59 +26,44 @@ return {
 
     -- Completion
     {
-        "hrsh7th/nvim-cmp",
+        "saghen/blink.cmp",
+        version = "1.*",
         event = "InsertEnter",
-        dependencies = {
-            "hrsh7th/cmp-nvim-lsp",
-            "hrsh7th/cmp-buffer",
-            "hrsh7th/cmp-path",
-            "L3MON4D3/LuaSnip",
-            "saadparwaiz1/cmp_luasnip",
-        },
-        config = function()
-            local cmp = require("cmp")
-            local luasnip = require("luasnip")
-
-            cmp.setup({
-                snippet = {
-                    expand = function(args)
-                        luasnip.lsp_expand(args.body)
+        opts = {
+            keymap = {
+                -- nvim-cmp時代の操作感を再現
+                preset = "none",
+                ["<C-Space>"] = { "show", "fallback" },
+                ["<CR>"] = { "accept", "fallback" },
+                ["<C-e>"] = { "hide", "fallback" },
+                ["<C-b>"] = { "scroll_documentation_up", "fallback" },
+                ["<C-f>"] = { "scroll_documentation_down", "fallback" },
+                ["<Tab>"] = {
+                    function(cmp)
+                        if cmp.is_visible() then
+                            return cmp.select_next()
+                        end
                     end,
+                    "snippet_forward",
+                    "fallback",
                 },
-                mapping = cmp.mapping.preset.insert({
-                    ["<C-b>"] = cmp.mapping.scroll_docs(-4),
-                    ["<C-f>"] = cmp.mapping.scroll_docs(4),
-                    ["<C-Space>"] = cmp.mapping.complete(),
-                    ["<C-e>"] = cmp.mapping.abort(),
-                    ["<CR>"] = cmp.mapping.confirm({ select = true }),
-                    ["<Tab>"] = cmp.mapping(function(fallback)
-                        if cmp.visible() then
-                            cmp.select_next_item()
-                        elseif luasnip.expand_or_jumpable() then
-                            luasnip.expand_or_jump()
-                        else
-                            fallback()
+                ["<S-Tab>"] = {
+                    function(cmp)
+                        if cmp.is_visible() then
+                            return cmp.select_prev()
                         end
-                    end, { "i", "s" }),
-                    ["<S-Tab>"] = cmp.mapping(function(fallback)
-                        if cmp.visible() then
-                            cmp.select_prev_item()
-                        elseif luasnip.jumpable(-1) then
-                            luasnip.jump(-1)
-                        else
-                            fallback()
-                        end
-                    end, { "i", "s" }),
-                }),
-                sources = cmp.config.sources({
-                    { name = "nvim_lsp" },
-                    { name = "luasnip" },
-                }, {
-                    { name = "buffer" },
-                    { name = "path" },
-                }),
-            })
-        end,
+                    end,
+                    "snippet_backward",
+                    "fallback",
+                },
+            },
+            completion = {
+                documentation = { auto_show = true },
+            },
+            sources = {
+                default = { "lsp", "snippets", "buffer", "path" },
+            },
+        },
     },
 
     -- UI / Navigation
