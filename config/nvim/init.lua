@@ -8,7 +8,6 @@ require("config.keymaps")
 
 -- Matches previous init.vim
 vim.cmd.syntax("enable")
-vim.g.rustfmt_autosave = 1
 
 -- SSH接続時はOSC 52でyankをローカルのクリップボードに転送する
 -- (リモートにはローカルのpbcopy/xclip等が無いため、エスケープシーケンス経由で送る)

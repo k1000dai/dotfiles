@@ -89,3 +89,11 @@ vim.diagnostic.config({
   underline = true,
   severity_sort = true,
 })
+
+-- rust.vim の rustfmt_autosave 相当: 保存時にrust_analyzer経由でフォーマット
+vim.api.nvim_create_autocmd("BufWritePre", {
+  pattern = "*.rs",
+  callback = function(args)
+    vim.lsp.buf.format({ bufnr = args.buf, async = false })
+  end,
+})

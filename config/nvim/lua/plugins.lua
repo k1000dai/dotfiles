@@ -43,6 +43,12 @@ return {
                         if cmp.is_visible() then
                             return cmp.select_next()
                         end
+                        -- 補完メニューが出ていなければCopilotのゴーストテキストを受け入れる
+                        local ok, suggestion = pcall(require, "copilot.suggestion")
+                        if ok and suggestion.is_visible() then
+                            suggestion.accept()
+                            return true
+                        end
                     end,
                     "snippet_forward",
                     "fallback",
@@ -96,20 +102,30 @@ return {
 
     -- Editing helpers
     {
-        "cohama/lexima.vim",
+        "echasnovski/mini.pairs",
+        version = "*",
         event = "InsertEnter",
-    },
-
-    -- Languages
-    {
-        "rust-lang/rust.vim",
-        ft = { "rust" },
+        opts = {},
     },
 
     -- Copilot
     {
-        "github/copilot.vim",
-        lazy = false,
+        "zbirenbaum/copilot.lua",
+        cmd = "Copilot",
+        event = "InsertEnter",
+        opts = {
+            suggestion = {
+                enabled = true,
+                auto_trigger = true, -- copilot.vim同様、入力中に自動でゴーストテキスト表示
+                keymap = {
+                    accept = false, -- Tabでの受け入れはblink.cmp側のチェーンで処理
+                    next = "<M-]>",
+                    prev = "<M-[>",
+                    dismiss = "<C-]>",
+                },
+            },
+            panel = { enabled = false },
+        },
     },
 
     -- Telescope
