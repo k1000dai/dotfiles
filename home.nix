@@ -3,7 +3,7 @@
 {
   home.username = "kohei";
   home.stateVersion = "25.11";
-
+  home.enableNixpkgsReleaseCheck = false;
   home.packages = [
     # shell
     pkgs.zsh
@@ -76,7 +76,6 @@
     ".tmux.conf".source = ./.tmux.conf;
     ".codex/AGENTS.md".source = ./config/codex/AGENTS.md;
     ".claude/CLAUDE.md".source = ./config/claude/CLAUDE.md;
-    ".bashrc".source = ./.bashrc;
     ".zshrc_extra".source = ./.zshrc;
     ".zshrc.d".source = ./.zshrc.d;
     ".zsh/git-prompt.sh".source = ./.zsh/git-prompt.sh;
