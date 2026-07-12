@@ -82,21 +82,24 @@ return {
 
     -- UI / Navigation
     {
-        "preservim/nerdtree",
-        dependencies = { "nvim-tree/nvim-web-devicons" },
-        keys = {
-            { "<Leader>e", ":NERDTreeToggle<CR>", silent = true },
+        "nvim-neo-tree/neo-tree.nvim",
+        branch = "v3.x",
+        dependencies = {
+            "nvim-lua/plenary.nvim",
+            "nvim-tree/nvim-web-devicons",
+            "MunifTanjim/nui.nvim",
         },
-        init = function()
-            vim.api.nvim_create_autocmd("BufEnter", {
-                pattern = "NERD_tree_*",
-                command = "normal R",
-            })
-            vim.api.nvim_create_autocmd("FocusGained", {
-                pattern = "NERD_tree_*",
-                command = "normal R",
-            })
-        end,
+        keys = {
+            { "<Leader>e", "<cmd>Neotree toggle<CR>", silent = true },
+        },
+        opts = {
+            filesystem = {
+                -- 開いているファイルにツリーを追従させる
+                follow_current_file = { enabled = true },
+                -- ファイルシステム変更を監視して自動リフレッシュ(NERDTreeのnormal Rハックの代替)
+                use_libuv_file_watcher = true,
+            },
+        },
     },
     {
         "petertriho/nvim-scrollbar",
