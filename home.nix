@@ -25,8 +25,8 @@
     pkgs.tmux
     pkgs.ffmpeg_7
     pkgs.wget
-    pkgs.unar
-    pkgs.graphviz
+    #pkgs.unar
+    #pkgs.graphviz
     pkgs.tree-sitter
     pkgs.bash-language-server
     pkgs.clang-tools
@@ -64,11 +64,10 @@
     pkgs.autoconf
 
     # other
-    pkgs.parquet-tools
     pkgs.codex
 
     #net 
-    pkgs.gping
+    #pkgs.gping
     pkgs.nmap
   ];
 
