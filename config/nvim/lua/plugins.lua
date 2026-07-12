@@ -35,7 +35,7 @@ return {
                 preset = "none",
                 ["<C-Space>"] = { "show", "fallback" },
                 ["<CR>"] = { "accept", "fallback" },
-                ["<C-e>"] = { "hide", "fallback" },
+                ["<C-e>"] = { "cancel", "fallback" },
                 ["<C-b>"] = { "scroll_documentation_up", "fallback" },
                 ["<C-f>"] = { "scroll_documentation_down", "fallback" },
                 ["<Tab>"] = {
