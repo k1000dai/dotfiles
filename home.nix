@@ -25,8 +25,7 @@
     pkgs.tmux
     pkgs.ffmpeg_7
     pkgs.wget
-    #pkgs.unar
-    #pkgs.graphviz
+    pkgs.unar
     pkgs.tree-sitter
     pkgs.bash-language-server
     pkgs.clang-tools
@@ -65,9 +64,9 @@
 
     # other
     pkgs.codex
+    pkgs.jq
 
     #net 
-    #pkgs.gping
     pkgs.nmap
   ];
 
