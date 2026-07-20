@@ -12,7 +12,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "tp=$(jq -r '.transcript_path // empty'); t=\"タスクが完了しました\"; if [ -z \"$YACHIYO_STOP_HOOK\" ] && [ -n \"$tp\" ] && [ -f \"$tp\" ]; then p=$(grep '\"type\":\"last-prompt\"' \"$tp\" | tail -1 | jq -r '(.lastPrompt // \"\") | gsub(\"\\\\s+\"; \" \") | .[0:200]'); if [ -n \"$p\" ]; then s=$(YACHIYO_STOP_HOOK=1 claude --model haiku --settings '{\"disableAllHooks\":true}' --strict-mcp-config --mcp-config '{\"mcpServers\":{}}' -p \"次のユーザー指示を日本語15文字以内の体言止めのタスク名に要約。タスク名のみ出力、引用符・句点なし。指示: $p\" 2>/dev/null | tr -d '\\n'); [ -n \"$s\" ] && t=\"${s}、のタスクが完了しました\"; fi; fi; curl -s -m 5 -X POST http://koheimacbook-air:8787/api/speak -H 'Content-Type: application/json' -d \"$(jq -n --arg t \"$t\" '{text:$t,emotion:\"smile\"}')\" >/dev/null 2>&1 || true",
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // empty'); f=\"${TMPDIR:-/tmp}/yachiyo-noclient-${sid:-global}\"; [ -f \"$f\" ] && exit 0; ac=$(curl -s -m 5 http://koheimacbook-air:8787/api/status 2>/dev/null | jq -r '.alive_clients // 0' 2>/dev/null); [ \"${ac:-0}\" -ge 1 ] 2>/dev/null || { touch \"$f\"; exit 0; }; tp=$(printf '%s' \"$in\" | jq -r '.transcript_path // empty'); t=\"タスクが完了しました\"; if [ -z \"$YACHIYO_STOP_HOOK\" ] && [ -n \"$tp\" ] && [ -f \"$tp\" ]; then p=$(grep '\"type\":\"last-prompt\"' \"$tp\" | tail -1 | jq -r '(.lastPrompt // \"\") | gsub(\"\\\\s+\"; \" \") | .[0:200]'); if [ -n \"$p\" ]; then s=$(YACHIYO_STOP_HOOK=1 claude --model haiku --settings '{\"disableAllHooks\":true}' --strict-mcp-config --mcp-config '{\"mcpServers\":{}}' -p \"次のユーザー指示を日本語15文字以内の体言止めのタスク名に要約。タスク名のみ出力、引用符・句点なし。指示: $p\" 2>/dev/null | tr -d '\\n'); [ -n \"$s\" ] && t=\"${s}、のタスクが完了しました\"; fi; fi; curl -s -m 5 -X POST http://koheimacbook-air:8787/api/speak -H 'Content-Type: application/json' -d \"$(jq -n --arg t \"$t\" '{text:$t,emotion:\"smile\"}')\" >/dev/null 2>&1 || true",
             "timeout": 90,
             "statusMessage": "ヤチヨに報告中...",
             "async": true
@@ -25,8 +25,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "m=$(jq -r '.message // \"\"'); case \"$m\" in *permission*) text=\"承認をお願いします\";; *) text=\"入力をお待ちしています\";; esac; curl -s -m 5 -X POST http://koheimacbook-air:8787/api/speak -H 'Content-Type: application/json' -d \"{\\\"text\\\":\\\"$text\\\"}\" >/dev/null 2>&1 || true",
-            "timeout": 10,
+            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // empty'); f=\"${TMPDIR:-/tmp}/yachiyo-noclient-${sid:-global}\"; [ -f \"$f\" ] && exit 0; ac=$(curl -s -m 5 http://koheimacbook-air:8787/api/status 2>/dev/null | jq -r '.alive_clients // 0' 2>/dev/null); [ \"${ac:-0}\" -ge 1 ] 2>/dev/null || { touch \"$f\"; exit 0; }; m=$(printf '%s' \"$in\" | jq -r '.message // \"\"'); case \"$m\" in *permission*) text=\"承認をお願いします\";; *) text=\"入力をお待ちしています\";; esac; curl -s -m 5 -X POST http://koheimacbook-air:8787/api/speak -H 'Content-Type: application/json' -d \"{\\\"text\\\":\\\"$text\\\"}\" >/dev/null 2>&1 || true",
+            "timeout": 15,
             "statusMessage": "ヤチヨに報告中...",
             "async": true
           }
@@ -42,6 +42,7 @@
   },
   "effortLevel": "xhigh",
   "tui": "fullscreen",
+  "skipWorkflowUsageWarning": true,
   "theme": "dark-ansi",
   "autoCompactEnabled": true,
   "agentPushNotifEnabled": true,
