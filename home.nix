@@ -55,6 +55,7 @@
     # python
     pkgs.uv
     pkgs.pixi
+    pkgs.python311
 
     # c/c++
     pkgs.cmake
@@ -68,8 +69,15 @@
 
     #net 
     pkgs.nmap
-  ];
 
+    #fonts.
+    pkgs.hackgen-nf-font
+    pkgs.fira-code
+    pkgs.nerd-fonts.hack
+    pkgs.rictydiminished-with-firacode
+
+  ];
+  fonts.fontconfig.enable = true;
   home.file = {
     ".tmux.conf".source = ./.tmux.conf;
     ".codex/AGENTS.md".source = ./config/codex/AGENTS.md;
