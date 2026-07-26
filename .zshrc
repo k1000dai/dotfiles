@@ -109,6 +109,19 @@ compinit
 zstyle ':completion:*:*:docker:*' option-stacking yes
 zstyle ':completion:*:*:docker-*:*' option-stacking yes
 
+# ssh
+# 補完候補を ~/.ssh/config の Host エイリアスだけに絞る。zsh 標準の _ssh_hosts は
+# HostName 行と known_hosts の FQDN も候補にするので、`ssh m<TAB>` に
+# miyabi-g.jcahpc.jp のような実ホスト名が混ざってしまう。
+ssh_completion_hosts() {
+  [[ -r "$HOME/.ssh/config" ]] || return 0
+  local -a aliases
+  aliases=( ${(f)"$(awk 'tolower($1) == "host" { for (i = 2; i <= NF; i++) if ($i !~ /[*?%]/) print $i }' "$HOME/.ssh/config")"} )
+  (( $#aliases )) || return 0
+  zstyle ':completion:*:(ssh|scp|sftp|rsync|ssh-copy-id):*' hosts $aliases
+}
+ssh_completion_hosts
+
 # cargo
 source_if_exists "$HOME/.cargo/env"
 

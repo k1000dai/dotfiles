@@ -18,6 +18,7 @@
     pkgs.python312Packages.huggingface-hub
     pkgs.tree
     pkgs.delta
+    pkgs.oath-toolkit
 
     # file manager
     pkgs.yazi
