@@ -170,20 +170,51 @@ manifest は次にあります。
 
 `@anthropic-ai/claude-code` は Anthropic 公式が curl native installer を推奨しているため npm 側ではなく `script/lib/bootstrap-common.sh` の `sync_claude_code` (`curl -fsSL https://claude.ai/install.sh | bash`) で `~/.local/bin/claude` に導入されます。`setup.sh` / `update.sh` の両方から自動で同期されます。
 
-## 主な管理対象
+## uv tool 管理対象
 
-- `script/setup.sh`: `nix` 優先の統合 bootstrap
-- `script/update.sh`: backend に応じた更新反映
-- `config/pixi/manifests/`: Linux 用の `pixi global` manifest
-- `config/nvim`: Neovim 設定
-- `config/lazygit`: Lazygit 設定
-- `config/ghostty`: Ghostty 設定
-- `config/yabai`: macOS の yabai 設定
-- `config/skhd`: macOS の skhd 設定
-- `.bashrc`: Bash 設定
-- `.gitconfig`: Git 設定
-- `.zshrc`, `.zshrc.d`: shell 設定
-- `.tmux.conf`: tmux 設定
+Python 系の standalone CLI は `uv tool` で `~/.local/bin` に導入します。
+
+```bash
+uv tool install huggingface_hub
+```
+
+- `huggingface_hub` (`hf` コマンド)
+
+## リポジトリ構成
+
+| パス | 内容 | リンク先 / 反映方法 |
+| --- | --- | --- |
+| `script/setup.sh` / `script/update.sh` | 統合 bootstrap / 更新反映 | - |
+| `flake.nix`, `home*.nix` | Nix / Home Manager 設定 | `home-manager switch --flake` |
+| `config/nvim` | Neovim 設定 | `~/.config/nvim` |
+| `config/lazygit` | Lazygit 設定 | `~/.config/lazygit` |
+| `config/ghostty` | Ghostty 設定 | `~/.config/ghostty` |
+| `config/wezterm` | WezTerm 設定 | `~/.config/wezterm` (nix のみ) |
+| `config/herdr/config.toml` | herdr 設定 | `~/.config/herdr/config.toml` (ファイル単位リンク。`~/.config/herdr/` はランタイム状態を持つためディレクトリごとリンクしない) |
+| `config/yabai` / `config/skhd` | macOS の WM / hotkey | `~/.config/yabai` / `~/.config/skhd` |
+| `config/claude/` | Claude Code 設定 | `~/.claude/settings.json` は out-of-store link で編集即反映 |
+| `config/ai-agents/` | AI agent 共通指示 (`INSTRUCTIONS.md`) と skills | `~/.claude/CLAUDE.md`, `~/.claude/skills` (out-of-store link) |
+| `config/codex/AGENTS.md` | Codex 指示 | `~/.codex/AGENTS.md` |
+| `config/git/shared.gitconfig` | Git 共通設定 (user / alias / ghq / lfs) | nix: `programs.git.includes` / pixi: root `.gitconfig` から include |
+| `.gitconfig` | pixi backend 用エントリ (共通設定を include + credential) | `~/.gitconfig` (pixi のみ) |
+| `config/pixi/manifests/` | Linux 用 `pixi global` manifest | `~/.pixi/manifests/pixi-global.toml` |
+| `config/npm/npm-global-packages.txt` | npm global CLI manifest | `npm install -g --prefix ~/.local` |
+| `.zshrc`, `.zshrc.d`, `.bashrc` | shell 設定 | nix: zsh は `.zshrc_extra` 経由 / pixi: 直接リンク |
+| `.tmux.conf` | tmux 設定 | `~/.tmux.conf` |
+| `keyboard/` | Vial キーボード設定 (cornix) のエクスポート | Vial から手動で読み込み |
+
+## 開発 (lint / CI)
+
+repo 自体のチェックは pre-commit で行います。
+
+```bash
+pre-commit run --all-files
+```
+
+- `nixfmt` (nix ファイル)、`shellcheck` (shell script)、標準 hooks (行末空白・EOF 改行など)
+- `nixfmt` / `shellcheck` は nix backend では `home.nix` で導入されます
+
+CI (GitHub Actions, `.github/workflows/build.yml`) は push / PR ごとに darwin / linux の `homeConfigurations` をビルドし、依存の破損を早期検知します。
 
 ## Nix / Home Manager について
 

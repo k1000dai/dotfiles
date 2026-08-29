@@ -8,7 +8,7 @@ Before editing, look for:
 - lint/format/typecheck configuration
 - CI configuration
 - existing examples of similar code
-- Do `pre-commit run --all-files` after making changes to check for formatting, linting, and type errors.
+- A Claude Code Stop hook automatically runs `pre-commit run --all-files` after changes, so you do not need to run it manually. Instead, make sure the project's formatter, linter, and type checker are configured as hooks in `.pre-commit-config.yaml` so that run covers them; if the file is missing, propose adding one.
 
 # Tool
 ## Tool for Python Engineering
@@ -18,7 +18,7 @@ If you are not in a virtual environment, activate "source .venv/bin/activate" fi
 * pixi : a tool for managing Python packages and dependencies like anaconda. It provides a simple interface for installing, updating, and removing packages, as well as managing virtual environments. If repository is conda environment or including not pip packages, please use pixi to manage dependencies.
 
 ## Tool for global environment.
-All tools assume installed via .dotfiles which is at ~/.dotfiles. 
+All tools assume installed via .dotfiles which is at ~/.dotfiles.
 If user have sudo permission, environment are managed by nix and home-manager. If user don't have sudo permission, environment are managed by pixi global sync.
 
 ## herdr (terminal workspace manager)

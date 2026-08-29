@@ -1,17 +1,7 @@
-[user]
-	name = k1000dai
-	email = chiyodakku1000@gmail.com
+# Entry point for the pixi backend (linked to ~/.gitconfig by script/setup.sh).
+# The nix backend does not use this file; home.nix includes the same shared
+# file into ~/.config/git/config via programs.git.
+[include]
+	path = ~/.dotfiles/config/git/shared.gitconfig
 [credential]
 	helper = cache
-[alias]
-    st = status -s
-    l = log --oneline --graph
-    al = log --oneline --graph --all
-    s = switch
-[filter "lfs"]
-	clean = git-lfs clean -- %f
-	smudge = git-lfs smudge -- %f
-	process = git-lfs filter-process
-	required = true
-[ghq]
-	root = ~/codes/ghq

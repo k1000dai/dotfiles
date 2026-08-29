@@ -1,0 +1,20 @@
+# Shared git settings for both backends.
+# - nix backend: included from programs.git (home.nix) into ~/.config/git/config
+# - pixi backend: included from the repo root .gitconfig linked to ~/.gitconfig
+# Per-OS settings (credential.helper) stay in home-darwin.nix / home-linux.nix
+# and in the root .gitconfig.
+[user]
+	name = k1000dai
+	email = chiyodakku1000@gmail.com
+[alias]
+	st = status -s
+	l = log --oneline --graph
+	al = log --oneline --graph --all
+	s = switch
+[ghq]
+	root = ~/codes/ghq
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true

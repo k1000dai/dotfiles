@@ -1,4 +1,4 @@
-{ pkgs,config, ... }:
+{ pkgs, config, ... }:
 
 {
   home.username = "kohei";
@@ -15,7 +15,7 @@
     pkgs.pueue
     #pkgs.fd
     #pkgs.eza
-    pkgs.python312Packages.huggingface-hub
+    # hf CLI is installed via `uv tool install huggingface_hub` (see README)
     pkgs.tree
     pkgs.delta
     pkgs.oath-toolkit
@@ -36,7 +36,9 @@
     pkgs.gopls
     pkgs.lua-language-server
     pkgs.marksman
+    pkgs.nixfmt-rfc-style
     pkgs.ruff
+    pkgs.shellcheck
     pkgs.taplo
     pkgs.ty
     pkgs.typescript
@@ -70,7 +72,7 @@
     #pkgs.claude-code
     pkgs.jq
 
-    #net 
+    #net
     pkgs.nmap
 
     #fonts.
@@ -84,8 +86,11 @@
   home.file = {
     ".tmux.conf".source = ./.tmux.conf;
     ".codex/AGENTS.md".source = ./config/codex/AGENTS.md;
-    ".claude/CLAUDE.md".source = ./config/claude/CLAUDE.md;
-    ".claude/skills".source = ./config/ai-agents/skills;
+    # out-of-store: edits in the repo apply without a home-manager rebuild
+    ".claude/CLAUDE.md".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/claude/CLAUDE.md";
+    ".claude/skills".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/ai-agents/skills";
     ".zshrc_extra".source = ./.zshrc;
     ".zshrc.d".source = ./.zshrc.d;
     ".zsh/git-prompt.sh".source = ./.zsh/git-prompt.sh;
@@ -110,17 +115,12 @@
   programs.git = {
     enable = true;
     lfs.enable = true;
-    settings = {
-      user.name = "k1000dai";
-      user.email = "chiyodakku1000@gmail.com";
-      ghq.root = "~/codes/ghq";
-      alias = {
-        st = "status -s";
-        l = "log --oneline --graph";
-        al = "log --oneline --graph --all";
-        s = "switch";
-      };
-    };
+    # user/alias/ghq live in config/git/shared.gitconfig, shared with the
+    # pixi backend (root .gitconfig includes the same file). Per-OS settings
+    # like credential.helper stay in home-darwin.nix / home-linux.nix.
+    includes = [
+      { path = "${config.home.homeDirectory}/.dotfiles/config/git/shared.gitconfig"; }
+    ];
   };
 
   programs.neovim = {
@@ -129,27 +129,29 @@
     withPython3 = true;
     plugins = with pkgs.vimPlugins; [
       nvim-lspconfig
-      (nvim-treesitter.withPlugins (p: with p; [
-        python
-        c
-        lua
-        vim
-        vimdoc
-        query
-        markdown
-        markdown_inline
-      ]))
+      (nvim-treesitter.withPlugins (
+        p: with p; [
+          python
+          c
+          lua
+          vim
+          vimdoc
+          query
+          markdown
+          markdown_inline
+        ]
+      ))
     ];
   };
 
   programs.zsh = {
-      enable = true;
-      enableCompletion = true;
-      autosuggestion.enable = true;
-      historySubstringSearch.enable = true;
-      syntaxHighlighting.enable = true;
-      initContent = ''
-        source $HOME/.zshrc_extra
-      '';
+    enable = true;
+    enableCompletion = true;
+    autosuggestion.enable = true;
+    historySubstringSearch.enable = true;
+    syntaxHighlighting.enable = true;
+    initContent = ''
+      source $HOME/.zshrc_extra
+    '';
   };
 }

@@ -18,17 +18,14 @@
             "async": true
           }
         ]
-      }
-    ],
-    "Notification": [
+      },
       {
         "hooks": [
           {
             "type": "command",
-            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // empty'); f=\"${TMPDIR:-/tmp}/yachiyo-noclient-${sid:-global}\"; [ -f \"$f\" ] && exit 0; ac=$(curl -s -m 5 http://koheimacbook-air:8787/api/status 2>/dev/null | jq -r '.alive_clients // 0' 2>/dev/null); [ \"${ac:-0}\" -ge 1 ] 2>/dev/null || { touch \"$f\"; exit 0; }; m=$(printf '%s' \"$in\" | jq -r '.message // \"\"'); case \"$m\" in *permission*) text=\"承認をお願いします\";; *) text=\"入力をお待ちしています\";; esac; curl -s -m 5 -X POST http://koheimacbook-air:8787/api/speak -H 'Content-Type: application/json' -d \"{\\\"text\\\":\\\"$text\\\"}\" >/dev/null 2>&1 || true",
-            "timeout": 15,
-            "statusMessage": "ヤチヨに報告中...",
-            "async": true
+            "command": "in=$(cat); [ \"$(printf '%s' \"$in\" | jq -r '.stop_hook_active // false')\" = \"true\" ] && exit 0; [ -f .pre-commit-config.yaml ] || exit 0; git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0; [ -n \"$(git status --porcelain 2>/dev/null)\" ] || exit 0; export PATH=\"$HOME/.local/bin:$PATH\"; out=$(pre-commit run --all-files 2>&1); code=$?; [ $code -eq 0 ] && exit 0; jq -n --arg r \"$(printf '%s' \"$out\" | tail -c 3000)\" '{decision:\"block\",reason:(\"pre-commit run --all-files failed. Fix the issues and re-run until it passes:\\n\\n\" + $r)}'",
+            "timeout": 300,
+            "statusMessage": "pre-commit run --all-files 実行中..."
           }
         ]
       }
