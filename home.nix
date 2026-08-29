@@ -13,8 +13,8 @@
     pkgs.zoxide
     pkgs.direnv
     pkgs.pueue
-    pkgs.fd
-    pkgs.eza
+    #pkgs.fd
+    #pkgs.eza
     pkgs.python312Packages.huggingface-hub
     pkgs.tree
     pkgs.delta
@@ -24,6 +24,7 @@
     pkgs.yazi
 
     pkgs.tmux
+    pkgs.herdr
     pkgs.ffmpeg_7
     pkgs.wget
     pkgs.unar
@@ -66,6 +67,7 @@
 
     # other
     pkgs.codex
+    #pkgs.claude-code
     pkgs.jq
 
     #net 
@@ -94,6 +96,8 @@
     "lazygit".source = ./config/lazygit;
     "ghostty".source = ./config/ghostty;
     "wezterm".source = ./config/wezterm;
+    # link the file only: ~/.config/herdr also holds runtime state (sockets, logs)
+    "herdr/config.toml".source = ./config/herdr/config.toml;
   };
 
   home.sessionVariables = {

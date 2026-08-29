@@ -1,0 +1,29 @@
+# herdr configuration (linked by home-manager; edit in ~/.dotfiles/config/herdr)
+# Defaults already match tmux: prefix ctrl+b, prefix+h/j/k/l for pane focus.
+
+# Config is a read-only symlink, so herdr cannot record the onboarding choice.
+onboarding = false
+
+[update]
+# Installed from nixpkgs; updates come via `nix flake update`, not `herdr update`.
+version_check = false
+
+[keys]
+prefix = "ctrl+b"
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
+# tmux: bind -r H/J/K/L resize-pane
+resize_pane_left = "prefix+shift+h"
+resize_pane_down = "prefix+shift+j"
+resize_pane_up = "prefix+shift+k"
+resize_pane_right = "prefix+shift+l"
+# tmux parity (defaults already match: c new-tab, n/p next/prev, 1-9 switch, x kill-pane, z zoom, ? help)
+detach = "prefix+d"            # tmux: d (herdr default: prefix+q)
+split_vertical = "prefix+%"    # tmux: % side-by-side (herdr default: prefix+v)
+split_horizontal = 'prefix+"'  # tmux: " stacked (herdr default: prefix+minus)
+rename_tab = "prefix+comma"    # tmux: , rename-window (herdr default: prefix+shift+t)
+close_tab = "prefix+ampersand" # tmux: & kill-window (herdr default: prefix+shift+x)
+edit_scrollback = "prefix+["   # tmux: [ copy-mode (herdr default: prefix+e)
+last_pane = "prefix+;"         # tmux: ; last-pane (herdr default: unset)
