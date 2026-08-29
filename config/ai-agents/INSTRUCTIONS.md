@@ -21,6 +21,14 @@ If you are not in a virtual environment, activate "source .venv/bin/activate" fi
 All tools assume installed via .dotfiles which is at ~/.dotfiles. 
 If user have sudo permission, environment are managed by nix and home-manager. If user don't have sudo permission, environment are managed by pixi global sync.
 
+## herdr (terminal workspace manager)
+Terminal sessions are managed by herdr, a tmux-like workspace manager for coding agents (config: ~/.dotfiles/config/herdr/config.toml, tmux-compatible keybindings, prefix ctrl+b).
+
+- If `HERDR_ENV=1`, you are running inside a herdr pane and can use the `herdr` CLI to inspect/control panes, tabs, workspaces, and other agents. Run `herdr --skill` first for usage.
+- Never run bare `herdr` (it launches/attaches the TUI). Use subcommands: `herdr pane`, `herdr tab`, `herdr agent`, `herdr workspace`, `herdr worktree`.
+- Only control herdr when the task calls for it (user asks, or coordinating parallel agents/panes). Check `HERDR_ENV` before any herdr command.
+- Git worktrees created via herdr live under the ghq root: ~/codes/ghq/worktrees/<repo>/<branch>.
+
 # Code style
 
 - Match the style of the existing codebase.

@@ -8,6 +8,11 @@ onboarding = false
 # Installed from nixpkgs; updates come via `nix flake update`, not `herdr update`.
 version_check = false
 
+[worktrees]
+# Herdr creates <repo>/<branch-slug> under this root. Placed inside the ghq root
+# as pseudo-host "worktrees" so checkouts show up in `ghq list` (worktrees/<repo>/<branch>).
+directory = "~/codes/ghq/worktrees"
+
 [keys]
 prefix = "ctrl+b"
 focus_pane_left = "prefix+h"
