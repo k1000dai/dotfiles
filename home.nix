@@ -36,7 +36,7 @@
     pkgs.gopls
     pkgs.lua-language-server
     pkgs.marksman
-    pkgs.nixfmt-rfc-style
+    pkgs.nixfmt
     pkgs.ruff
     pkgs.shellcheck
     pkgs.taplo
