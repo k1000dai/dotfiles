@@ -68,7 +68,9 @@
     pkgs.autoconf
 
     # other
-    pkgs.codex
+    # codex / claude-code use their official standalone installers instead
+    # (script/lib/bootstrap-common.sh: sync_codex / sync_claude_code)
+    #pkgs.codex
     #pkgs.claude-code
     pkgs.jq
 

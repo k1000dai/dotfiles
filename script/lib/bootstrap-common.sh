@@ -455,6 +455,53 @@ sync_claude_code() {
   ensure_path "${HOME}/.local/bin"
 }
 
+sync_codex() {
+  local prefix
+  local legacy_pkg_dir
+  local legacy_bin
+
+  if [[ "${SKIP_TOOL_INSTALL}" == "1" ]]; then
+    log "Skipping codex standalone installer because SKIP_TOOL_INSTALL=1"
+    return 0
+  fi
+
+  prefix="$(npm_global_prefix)"
+  legacy_pkg_dir="${prefix}/lib/node_modules/@openai/codex"
+  legacy_bin="${prefix}/bin/codex"
+
+  # OpenAI ships a standalone installer at https://chatgpt.com/codex/install.sh
+  # which installs into ~/.local/bin/codex and is the officially recommended
+  # path. If a previous npm-based install of @openai/codex lingers, drop it
+  # first so the binary at ~/.local/bin/codex does not collide.
+  if [[ -d "${legacy_pkg_dir}" ]] && command -v npm >/dev/null 2>&1; then
+    log "Removing legacy npm-installed @openai/codex from ${prefix}"
+    run npm uninstall -g --prefix "${prefix}" @openai/codex || true
+  fi
+
+  if [[ -L "${legacy_bin}" ]]; then
+    local target
+    target="$(readlink "${legacy_bin}" || true)"
+    case "${target}" in
+      *node_modules/@openai/codex/*)
+        log "Removing stale npm codex symlink at ${legacy_bin}"
+        run rm -f "${legacy_bin}"
+        hash -r
+        ;;
+    esac
+  fi
+
+  # ~/.local/bin has to be on PATH before the installer runs: otherwise it
+  # appends its own "Codex installer" PATH block to ~/.zprofile (or the other
+  # shell profiles this repository manages).
+  ensure_path "${HOME}/.local/bin"
+
+  # The installer resolves the latest release and skips the download when it is
+  # already installed, so it doubles as the update path. CODEX_NON_INTERACTIVE
+  # keeps it from prompting ("Start Codex now?") during setup/update.
+  log "Installing/updating codex via official standalone installer"
+  CODEX_NON_INTERACTIVE=1 safe_curl_run 'https://chatgpt.com/codex/install.sh' 'codex'
+}
+
 confirm_install_nix() {
   local answer
 
@@ -614,6 +661,7 @@ setup_with_pixi() {
   sync_neovim_plugins
   sync_npm_global_packages
   sync_claude_code
+  sync_codex
   log "Pixi-based setup completed. Restart the shell or run: source ~/.zshrc"
 }
 
@@ -637,6 +685,7 @@ setup_with_nix() {
   home_manager_cmd switch --flake "${REPO_ROOT}#${target}"
   sync_npm_global_packages
   sync_claude_code
+  sync_codex
   log "Nix-based setup completed."
 }
 

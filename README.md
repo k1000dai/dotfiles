@@ -165,10 +165,20 @@ manifest は次にあります。
 
 現在の管理対象:
 
-- `@openai/codex@latest` (`codex` は更新追従を優先して npm 側で管理)
-- `happy`
+- `czg`
 
-`@anthropic-ai/claude-code` は Anthropic 公式が curl native installer を推奨しているため npm 側ではなく `script/lib/bootstrap-common.sh` の `sync_claude_code` (`curl -fsSL https://claude.ai/install.sh | bash`) で `~/.local/bin/claude` に導入されます。`setup.sh` / `update.sh` の両方から自動で同期されます。
+## curl installer 管理対象 (AI CLI)
+
+AI CLI は公式が配布する standalone installer で `~/.local/bin` に導入します。どちらも `script/lib/bootstrap-common.sh` にあり、`setup.sh` / `update.sh` の両方から自動で同期されます (installer 自体が最新版の解決と更新を兼ねます)。
+
+| CLI | 関数 | installer | 導入先 |
+| --- | --- | --- | --- |
+| `claude` | `sync_claude_code` | `curl -fsSL https://claude.ai/install.sh \| bash` | `~/.local/bin/claude` |
+| `codex` | `sync_codex` | `curl -fsSL https://chatgpt.com/codex/install.sh \| sh` | `~/.local/bin/codex` |
+
+- `@anthropic-ai/claude-code` / `@openai/codex` は npm 側では管理しません (npm 版が残っている場合は各関数が uninstall します)。`config/npm/npm-global-packages.txt` に戻さないでください。
+- `codex` は nix (`pkgs.codex`) でも入れません。`home.nix` の該当行はコメントアウトしてあります。
+- codex installer は `~/.local/bin` が PATH に無いと shell profile (`~/.zprofile` など) に PATH ブロックを追記するため、`sync_codex` は installer 実行前に PATH を通します。また `CODEX_NON_INTERACTIVE=1` を渡してプロンプトを抑止します。
 
 ## uv tool 管理対象
 

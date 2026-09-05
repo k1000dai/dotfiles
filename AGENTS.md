@@ -12,8 +12,9 @@
 * `script/update.sh` uses the same backend resolution, but must not prompt to install nix. On the nix path it runs `nix flake update nixpkgs` and reapplies Home Manager. If nix is absent, it should refresh links and run `pixi global sync`.
 * npm-only CLI tools are managed separately in `config/npm/npm-global-packages.txt`.
 * For npm-only packages, do not use npm's default global prefix. Sync them with `npm install -g --prefix "$HOME/.local"` so pixi or nix managed Node environments are not mutated.
-* `happy` is currently managed through that npm global manifest.
+* `czg` is currently managed through that npm global manifest.
 * `@anthropic-ai/claude-code` is intentionally NOT managed via npm. Anthropic recommends the native installer (`curl -fsSL https://claude.ai/install.sh | bash`), so it is installed by `sync_claude_code` in `script/lib/bootstrap-common.sh` and runs as part of both `setup.sh` and `update.sh`. Do not re-add it to `config/npm/npm-global-packages.txt`.
+* `@openai/codex` is likewise NOT managed via npm or nix. It is installed by `sync_codex` in `script/lib/bootstrap-common.sh` with the official standalone installer (`curl -fsSL https://chatgpt.com/codex/install.sh | sh`) into `~/.local/bin/codex`, and runs from both `setup.sh` and `update.sh`. Keep `pkgs.codex` commented out in `home.nix` and do not re-add `@openai/codex` to `config/npm/npm-global-packages.txt`.
 * Dotfiles are linked into `$HOME`, and conflicting files are backed up with `*.bak.<timestamp>`.
 * The pixi global manifest is managed in-repo under `config/pixi/manifests/`.
 * This repository's pixi backend is Linux-only; macOS should use nix/home-manager.
