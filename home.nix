@@ -88,6 +88,9 @@
   home.file = {
     ".tmux.conf".source = ./.tmux.conf;
     ".codex/AGENTS.md".source = ./config/codex/AGENTS.md;
+    # out-of-store: Codex writes new/regenerated pets straight into the repo
+    ".codex/pets".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/codex/pets";
     # out-of-store: edits in the repo apply without a home-manager rebuild
     ".claude/CLAUDE.md".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/claude/CLAUDE.md";

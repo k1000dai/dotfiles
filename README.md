@@ -180,6 +180,12 @@ AI CLI は公式が配布する standalone installer で `~/.local/bin` に導�
 - `codex` は nix (`pkgs.codex`) でも入れません。`home.nix` の該当行はコメントアウトしてあります。
 - codex installer は `~/.local/bin` が PATH に無いと shell profile (`~/.zprofile` など) に PATH ブロックを追記するため、`sync_codex` は installer 実行前に PATH を通します。また `CODEX_NON_INTERACTIVE=1` を渡してプロンプトを抑止します。
 
+### Codex pet
+
+Codex desktop の custom pet「ヤチヨ」も `config/codex/pets/` で管理しています (`~/.codex/pets` へ out-of-store link)。
+
+<img src="docs/assets/codex-pet-yachiyo.gif" alt="Codex pet ヤチヨ" width="120">
+
 ## uv tool 管理対象
 
 Python 系の standalone CLI は `uv tool` で `~/.local/bin` に導入します。
@@ -204,7 +210,8 @@ uv tool install huggingface_hub
 | `config/yabai` / `config/skhd` | macOS の WM / hotkey | `~/.config/yabai` / `~/.config/skhd` |
 | `config/claude/` | Claude Code 設定 | `~/.claude/settings.json` は out-of-store link で編集即反映 |
 | `config/ai-agents/` | AI agent 共通指示 (`INSTRUCTIONS.md`) と skills | `~/.claude/CLAUDE.md`, `~/.claude/skills` (out-of-store link) |
-| `config/codex/AGENTS.md` | Codex 指示 | `~/.codex/AGENTS.md` |
+| `config/codex/AGENTS.md` | 共通指示 (`config/ai-agents/INSTRUCTIONS.md`) への symlink | `~/.codex/AGENTS.md` (nix では Home Manager 再適用で反映) |
+| `config/codex/pets/` | Codex desktop の custom pet (`<id>/pet.json` + `spritesheet.webp`) | `~/.codex/pets` (out-of-store link。Codex で作成/再生成した pet はそのまま repo に入る。どの pet を使うかは `~/.codex/config.toml` の `[desktop] selected-avatar-id = "custom:<id>"` で、こちらは未管理) |
 | `config/git/shared.gitconfig` | Git 共通設定 (user / alias / ghq / lfs) | nix: `programs.git.includes` / pixi: root `.gitconfig` から include |
 | `.gitconfig` | pixi backend 用エントリ (共通設定を include + credential) | `~/.gitconfig` (pixi のみ) |
 | `config/pixi/manifests/` | Linux 用 `pixi global` manifest | `~/.pixi/manifests/pixi-global.toml` |
@@ -215,6 +222,8 @@ uv tool install huggingface_hub
 
 ## 開発 (lint / CI)
 
+エージェント共通の指示は `config/ai-agents/INSTRUCTIONS.md`、この repo 固有のルールはルートの `AGENTS.md` に記載します。`config/claude/CLAUDE.md` と `config/codex/AGENTS.md` は共通指示への symlink なので、本文は共通ファイルを編集してください。
+
 repo 自体のチェックは pre-commit で行います。
 
 ```bash
@@ -223,6 +232,7 @@ pre-commit run --all-files
 
 - `nixfmt` (nix ファイル)、`shellcheck` (shell script)、標準 hooks (行末空白・EOF 改行など)
 - `nixfmt` / `shellcheck` は nix backend では `home.nix` で導入されます
+- Claude Code では、設定ファイルと作業ツリーの変更がある場合に Stop hook が pre-commit を実行します。Codex などではこの hook は動かないため、必要なチェックを別途実行します。
 
 CI (GitHub Actions, `.github/workflows/build.yml`) は push / PR ごとに darwin / linux の `homeConfigurations` をビルドし、依存の破損を早期検知します。
 
