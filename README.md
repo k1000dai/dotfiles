@@ -169,16 +169,18 @@ manifest は次にあります。
 
 ## curl installer 管理対象 (AI CLI)
 
-AI CLI は公式が配布する standalone installer で `~/.local/bin` に導入します。どちらも `script/lib/bootstrap-common.sh` にあり、`setup.sh` / `update.sh` の両方から自動で同期されます (installer 自体が最新版の解決と更新を兼ねます)。
+AI CLI は公式が配布する standalone installer で `~/.local/bin` に導入します。いずれも `script/lib/bootstrap-common.sh` にあり、`setup.sh` / `update.sh` の両方から自動で同期されます (installer 自体が最新版の解決と更新を兼ねます)。
 
 | CLI | 関数 | installer | 導入先 |
 | --- | --- | --- | --- |
 | `claude` | `sync_claude_code` | `curl -fsSL https://claude.ai/install.sh \| bash` | `~/.local/bin/claude` |
 | `codex` | `sync_codex` | `curl -fsSL https://chatgpt.com/codex/install.sh \| sh` | `~/.local/bin/codex` |
+| `herdr` | `sync_herdr` | `curl -fsSL https://herdr.dev/install.sh \| sh` | `~/.local/bin/herdr` |
 
 - `@anthropic-ai/claude-code` / `@openai/codex` は npm 側では管理しません (npm 版が残っている場合は各関数が uninstall します)。`config/npm/npm-global-packages.txt` に戻さないでください。
-- `codex` は nix (`pkgs.codex`) でも入れません。`home.nix` の該当行はコメントアウトしてあります。
+- `codex` / `herdr` は nix (`pkgs.codex` / `pkgs.herdr`) でも入れません。`home.nix` の該当行はコメントアウトしてあります。
 - codex installer は `~/.local/bin` が PATH に無いと shell profile (`~/.zprofile` など) に PATH ブロックを追記するため、`sync_codex` は installer 実行前に PATH を通します。また `CODEX_NON_INTERACTIVE=1` を渡してプロンプトを抑止します。
+- `herdr` は 2 回目以降 `~/.local/bin/herdr update` で更新します (`herdr update` は installer 管理のバイナリ専用なので、PATH 上の `herdr` ではなく installer の配置先を直接見ます)。
 
 ### Codex pet
 
@@ -206,7 +208,7 @@ uv tool install huggingface_hub
 | `config/lazygit` | Lazygit 設定 | `~/.config/lazygit` |
 | `config/ghostty` | Ghostty 設定 | `~/.config/ghostty` |
 | `config/wezterm` | WezTerm 設定 | `~/.config/wezterm` (nix のみ) |
-| `config/herdr/config.toml` | herdr 設定 | `~/.config/herdr/config.toml` (ファイル単位リンク。`~/.config/herdr/` はランタイム状態を持つためディレクトリごとリンクしない) |
+| `config/herdr/config.toml` | herdr 設定 (本体は `sync_herdr` で導入) | `~/.config/herdr/config.toml` (nix / pixi ともファイル単位リンク。`~/.config/herdr/` はランタイム状態を持つためディレクトリごとリンクしない) |
 | `config/yabai` / `config/skhd` | macOS の WM / hotkey | `~/.config/yabai` / `~/.config/skhd` |
 | `config/claude/` | Claude Code 設定 | `~/.claude/settings.json` は out-of-store link で編集即反映 |
 | `config/ai-agents/` | AI agent 共通指示 (`INSTRUCTIONS.md`) と skills | `~/.claude/CLAUDE.md`, `~/.claude/skills` (out-of-store link) |

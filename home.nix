@@ -24,7 +24,8 @@
     pkgs.yazi
 
     pkgs.tmux
-    pkgs.herdr
+    # herdr uses its official installer (script/lib/bootstrap-common.sh: sync_herdr)
+    #pkgs.herdr
     pkgs.ffmpeg_7
     pkgs.wget
     pkgs.unar
@@ -68,8 +69,8 @@
     pkgs.autoconf
 
     # other
-    # codex / claude-code use their official standalone installers instead
-    # (script/lib/bootstrap-common.sh: sync_codex / sync_claude_code)
+    # codex / claude-code / herdr use their official standalone installers instead
+    # (script/lib/bootstrap-common.sh: sync_codex / sync_claude_code / sync_herdr)
     #pkgs.codex
     #pkgs.claude-code
     pkgs.jq

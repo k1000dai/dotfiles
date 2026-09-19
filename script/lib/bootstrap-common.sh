@@ -333,6 +333,8 @@ setup_links() {
   link_path "${REPO_ROOT}/config/nvim" "${HOME}/.config/nvim"
   link_path "${REPO_ROOT}/config/lazygit" "${HOME}/.config/lazygit"
   link_path "${REPO_ROOT}/config/ghostty" "${HOME}/.config/ghostty"
+  # link the file only: ~/.config/herdr also holds runtime state (sockets, logs)
+  link_path "${REPO_ROOT}/config/herdr/config.toml" "${HOME}/.config/herdr/config.toml"
   link_path "${manifest_source}" "${HOME}/.pixi/manifests/pixi-global.toml"
 
   case "$(current_os)" in
@@ -503,6 +505,32 @@ sync_codex() {
   CODEX_NON_INTERACTIVE=1 safe_curl_run 'https://chatgpt.com/codex/install.sh' 'codex'
 }
 
+sync_herdr() {
+  local herdr_bin="${HOME}/.local/bin/herdr"
+
+  if [[ "${SKIP_TOOL_INSTALL}" == "1" ]]; then
+    log "Skipping herdr standalone installer because SKIP_TOOL_INSTALL=1"
+    return 0
+  fi
+
+  # herdr ships a standalone installer at https://herdr.dev/install.sh which
+  # installs into ~/.local/bin/herdr (override: HERDR_INSTALL_DIR). It is
+  # non-interactive and does not touch shell profiles; it only warns when the
+  # directory is missing from PATH, so make sure it is there first.
+  ensure_path "${HOME}/.local/bin"
+
+  # `herdr update` is only meant for installer-managed binaries, so check the
+  # installer path explicitly instead of whatever `herdr` resolves to on PATH
+  # (a nix/brew copy could shadow it).
+  if [[ -x "${herdr_bin}" ]]; then
+    log "Updating herdr via herdr update"
+    run "${herdr_bin}" update
+  else
+    log "Installing herdr via official standalone installer"
+    safe_curl_run 'https://herdr.dev/install.sh' 'herdr'
+  fi
+}
+
 confirm_install_nix() {
   local answer
 
@@ -663,6 +691,7 @@ setup_with_pixi() {
   sync_npm_global_packages
   sync_claude_code
   sync_codex
+  sync_herdr
   log "Pixi-based setup completed. Restart the shell or run: source ~/.zshrc"
 }
 
@@ -687,6 +716,7 @@ setup_with_nix() {
   sync_npm_global_packages
   sync_claude_code
   sync_codex
+  sync_herdr
   log "Nix-based setup completed."
 }
 

@@ -5,7 +5,8 @@
 onboarding = false
 
 [update]
-# Installed from nixpkgs; updates come via `nix flake update`, not `herdr update`.
+# Installed by the official installer (~/.local/bin/herdr); script/update.sh runs
+# `herdr update` (sync_herdr), so skip the in-app update check.
 version_check = false
 
 [worktrees]
