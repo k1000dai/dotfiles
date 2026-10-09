@@ -41,7 +41,7 @@ run_shell() {
   bash -c "$command"
 }
 
-safe_curl_run() {
+safe_curl_run() (
   local url="$1"
   local label="$2"
   shift 2
@@ -51,18 +51,21 @@ safe_curl_run() {
     return 0
   fi
 
-  local tmpfile
-  tmpfile="$(mktemp)"
-  trap 'rm -f "$tmpfile"' RETURN
+  # This subshell owns the variable: Bash 3.2 unwinds function locals before
+  # running EXIT traps after an errexit, so a local would lose the path.
+  installer_tmpfile="$(mktemp)" || return 1
+  # Keep cleanup local to this invocation, including installer failures under
+  # set -e. A RETURN trap would leak into the caller and miss that exit path.
+  trap 'rm -f "$installer_tmpfile"' EXIT
 
-  if ! curl -fsSL "$url" -o "$tmpfile"; then
+  if ! curl -fsSL --retry 3 --connect-timeout 10 --max-time 60 "$url" -o "$installer_tmpfile"; then
     log "Failed to download ${label} installer from ${url}"
     return 1
   fi
 
-  log "Downloaded ${label} installer ($(wc -c < "$tmpfile" | tr -d ' ') bytes)"
-  bash "$tmpfile" "$@"
-}
+  log "Downloaded ${label} installer ($(wc -c < "$installer_tmpfile" | tr -d ' ') bytes)"
+  bash "$installer_tmpfile" "$@"
+)
 
 ensure_path() {
   case ":${PATH}:" in
@@ -329,6 +332,10 @@ setup_links() {
   link_path "${REPO_ROOT}/config/codex/pets" "${HOME}/.codex/pets"
   link_path "${REPO_ROOT}/config/claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
   link_path "${REPO_ROOT}/config/claude/settings.json" "${HOME}/.claude/settings.json"
+  link_path "${REPO_ROOT}/config/ai-agents/skills" "${HOME}/.claude/skills"
+  link_path "${REPO_ROOT}/config/ai-agents/skills/sanitize-artifacts" "${HOME}/.agents/skills/sanitize-artifacts"
+  link_path "${REPO_ROOT}/config/claude/hooks/herdr-agent-state.sh" "${HOME}/.claude/hooks/herdr-agent-state.sh"
+  link_path "${REPO_ROOT}/config/claude/hooks/pre-commit-stop.sh" "${HOME}/.claude/hooks/pre-commit-stop.sh"
 
   link_path "${REPO_ROOT}/config/nvim" "${HOME}/.config/nvim"
   link_path "${REPO_ROOT}/config/lazygit" "${HOME}/.config/lazygit"
@@ -448,14 +455,14 @@ sync_claude_code() {
     esac
   fi
 
-  if command -v claude >/dev/null 2>&1; then
+  ensure_path "${HOME}/.local/bin"
+  if [[ -x "${legacy_bin}" ]]; then
     log "Updating claude code via claude update"
-    run claude update
+    run "${legacy_bin}" update
   else
     log "Installing claude code via official native installer"
     safe_curl_run 'https://claude.ai/install.sh' 'claude-code'
   fi
-  ensure_path "${HOME}/.local/bin"
 }
 
 sync_codex() {
@@ -506,7 +513,8 @@ sync_codex() {
 }
 
 sync_herdr() {
-  local herdr_bin="${HOME}/.local/bin/herdr"
+  local install_dir="${HERDR_INSTALL_DIR:-${HOME}/.local/bin}"
+  local herdr_bin="${install_dir}/herdr"
 
   if [[ "${SKIP_TOOL_INSTALL}" == "1" ]]; then
     log "Skipping herdr standalone installer because SKIP_TOOL_INSTALL=1"
@@ -517,17 +525,19 @@ sync_herdr() {
   # installs into ~/.local/bin/herdr (override: HERDR_INSTALL_DIR). It is
   # non-interactive and does not touch shell profiles; it only warns when the
   # directory is missing from PATH, so make sure it is there first.
-  ensure_path "${HOME}/.local/bin"
+  ensure_path "${install_dir}"
 
   # `herdr update` is only meant for installer-managed binaries, so check the
   # installer path explicitly instead of whatever `herdr` resolves to on PATH
   # (a nix/brew copy could shadow it).
-  if [[ -x "${herdr_bin}" ]]; then
+  # A symlink can point into a package manager's store; install a standalone
+  # copy in that case instead of asking it to update the managed target.
+  if [[ -x "${herdr_bin}" && ! -L "${herdr_bin}" ]]; then
     log "Updating herdr via herdr update"
     run "${herdr_bin}" update
   else
     log "Installing herdr via official standalone installer"
-    safe_curl_run 'https://herdr.dev/install.sh' 'herdr'
+    HERDR_INSTALL_DIR="${install_dir}" safe_curl_run 'https://herdr.dev/install.sh' 'herdr'
   fi
 }
 

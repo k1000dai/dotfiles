@@ -22,5 +22,11 @@ jobs:
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
+      - name: Test bootstrap and agent hooks
+        run: |
+          nix shell --inputs-from . nixpkgs#bash nixpkgs#jq --command bash -euc '
+            bash script/tests/test-bootstrap.sh
+            bash script/tests/test-agent-hooks.sh
+          '
       - name: Build Home Manager configuration
         run: nix build .#homeConfigurations.${{ matrix.target }}.activationPackage

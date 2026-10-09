@@ -146,6 +146,7 @@ manifest は次にあります。
 - shell / CLI: `zsh`, `fzf`, `ripgrep`, `bat`, `zoxide`, `tmux`, `yazi`, `wget`, `pueue`, `fd-find`
 - git 周辺: `git`, `git-lfs`, `gh`, `ghq`, `lazygit`
 - Python 周辺: `python`, `uv`, `ruff`
+- agent hooks: `jq`, `pre-commit` (各 repo の lint / test コマンドは別途その環境で用意)
 - editor / LSP 周辺: `nvim`, `node`, `bash-language-server`, `dockerfile-language-server`, `go`, `gopls`, `lua-language-server`, `marksman`, `taplo`, `ty`, `typescript-language-server`, `clangd`, `vscode-langservers-extracted`, `yaml-language-server`
 
 次のようなものは `pixi global` manifest にはまだ寄せていません。
@@ -169,7 +170,7 @@ manifest は次にあります。
 
 ## curl installer 管理対象 (AI CLI)
 
-AI CLI は公式が配布する standalone installer で `~/.local/bin` に導入します。いずれも `script/lib/bootstrap-common.sh` にあり、`setup.sh` / `update.sh` の両方から自動で同期されます (installer 自体が最新版の解決と更新を兼ねます)。
+AI CLI は公式が配布する standalone installer で `~/.local/bin` に導入します。いずれも `script/lib/bootstrap-common.sh` にあり、`setup.sh` / `update.sh` の両方から自動で同期されます。installer は一時ファイルへのダウンロードが完了してから実行し、成功・失敗にかかわらず削除します。取得にはリトライとタイムアウトを設定しています。
 
 | CLI | 関数 | installer | 導入先 |
 | --- | --- | --- | --- |
@@ -180,7 +181,21 @@ AI CLI は公式が配布する standalone installer で `~/.local/bin` に導�
 - `@anthropic-ai/claude-code` / `@openai/codex` は npm 側では管理しません (npm 版が残っている場合は各関数が uninstall します)。`config/npm/npm-global-packages.txt` に戻さないでください。
 - `codex` / `herdr` は nix (`pkgs.codex` / `pkgs.herdr`) でも入れません。`home.nix` の該当行はコメントアウトしてあります。
 - codex installer は `~/.local/bin` が PATH に無いと shell profile (`~/.zprofile` など) に PATH ブロックを追記するため、`sync_codex` は installer 実行前に PATH を通します。また `CODEX_NON_INTERACTIVE=1` を渡してプロンプトを抑止します。
-- `herdr` は 2 回目以降 `~/.local/bin/herdr update` で更新します (`herdr update` は installer 管理のバイナリ専用なので、PATH 上の `herdr` ではなく installer の配置先を直接見ます)。
+- `claude` は `~/.local/bin/claude` があれば、そのバイナリの `update` を実行します。PATH 上の別のインストールは更新対象にしません。
+- `codex` は [公式の更新手順](https://learn.chatgpt.com/docs/codex/cli) と同じく installer を再実行します。
+- `herdr` は 2 回目以降、導入先のバイナリで `herdr update` を実行します。[公式の注意事項](https://herdr.dev/docs/install/#update) に従い、PATH 上の別バイナリや package manager を指す symlink は更新対象にせず、導入先が symlink の場合は standalone installer で置き換えます。
+- `HERDR_INSTALL_DIR` を指定した場合、インストール・更新の両方で同じディレクトリを使います。更新時も同じ値を指定してください。省略時は `~/.local/bin` です。更新に失敗した場合はエラーを返し、別チャネルへの再インストールは行いません。
+- `SKIP_TOOL_INSTALL=1` で 3 CLI のインストール・更新をスキップできます。
+
+### Agent 設定と hooks
+
+macOS / Linux の Home Manager と Linux pixi で同じ設定をリンクします。
+
+- 共通指示は `config/ai-agents/INSTRUCTIONS.md`。Claude Code と Codex の両方で repo の編集を即反映します。
+- Claude Code の skills は `~/.claude/skills` にリンクします。アプリが生成する `skills/synced/` は Git の管理対象外です。
+- 共通の `sanitize-artifacts` skill は Codex の [ユーザー用 skills ディレクトリ](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills) `~/.agents/skills/sanitize-artifacts` にも個別リンクします。既存の他の skills はそのまま使えます。
+- hooks は `~/.claude/hooks/` にファイル単位でリンクします。herdr の生成管理 hook と独自の `pre-commit-stop.sh` を分けています。
+- Stop hook はイベントの `cwd` から Git root を解決し、`.pre-commit-config.yaml` と変更がある場合だけ検査します。サブディレクトリからの起動にも対応し、hook による継続時の再帰実行を避けます。
 
 ### Codex pet
 
@@ -210,9 +225,9 @@ uv tool install huggingface_hub
 | `config/wezterm` | WezTerm 設定 | `~/.config/wezterm` (nix のみ) |
 | `config/herdr/config.toml` | herdr 設定 (本体は `sync_herdr` で導入) | `~/.config/herdr/config.toml` (nix / pixi ともファイル単位リンク。`~/.config/herdr/` はランタイム状態を持つためディレクトリごとリンクしない) |
 | `config/yabai` / `config/skhd` | macOS の WM / hotkey | `~/.config/yabai` / `~/.config/skhd` |
-| `config/claude/` | Claude Code 設定 | `~/.claude/settings.json` は out-of-store link で編集即反映 |
-| `config/ai-agents/` | AI agent 共通指示 (`INSTRUCTIONS.md`) と skills | `~/.claude/CLAUDE.md`, `~/.claude/skills` (out-of-store link) |
-| `config/codex/AGENTS.md` | 共通指示 (`config/ai-agents/INSTRUCTIONS.md`) への symlink | `~/.codex/AGENTS.md` (nix では Home Manager 再適用で反映) |
+| `config/claude/` | Claude Code 設定と hooks | `~/.claude/settings.json`, `~/.claude/hooks/*.sh` (ファイル単位の out-of-store link) |
+| `config/ai-agents/` | AI agent 共通指示 (`INSTRUCTIONS.md`) と skills | `~/.claude/CLAUDE.md`, `~/.claude/skills`, `~/.agents/skills/sanitize-artifacts` (out-of-store link) |
+| `config/codex/AGENTS.md` | 共通指示 (`config/ai-agents/INSTRUCTIONS.md`) への symlink | `~/.codex/AGENTS.md` (out-of-store link で編集即反映) |
 | `config/codex/pets/` | Codex desktop の custom pet (`<id>/pet.json` + `spritesheet.webp`) | `~/.codex/pets` (out-of-store link。Codex で作成/再生成した pet はそのまま repo に入る。どの pet を使うかは `~/.codex/config.toml` の `[desktop] selected-avatar-id = "custom:<id>"` で、こちらは未管理) |
 | `config/git/shared.gitconfig` | Git 共通設定 (user / alias / ghq / lfs) | nix: `programs.git.includes` / pixi: root `.gitconfig` から include |
 | `.gitconfig` | pixi backend 用エントリ (共通設定を include + credential) | `~/.gitconfig` (pixi のみ) |
@@ -230,11 +245,14 @@ repo 自体のチェックは pre-commit で行います。
 
 ```bash
 pre-commit run --all-files
+bash script/tests/test-bootstrap.sh
+bash script/tests/test-agent-hooks.sh
 ```
 
 - `nixfmt` (nix ファイル)、`shellcheck` (shell script)、標準 hooks (行末空白・EOF 改行など)
 - `nixfmt` / `shellcheck` は nix backend では `home.nix` で導入されます
 - Claude Code では、設定ファイルと作業ツリーの変更がある場合に Stop hook が pre-commit を実行します。Codex などではこの hook は動かないため、必要なチェックを別途実行します。
+- shell 回帰テストは一時 HOME と mock を使い、installer の失敗・更新先の選択・Linux のリンクと dry-run・Stop hook を検証します。実際のインストールやネットワークアクセスは行いません。
 
 CI (GitHub Actions, `.github/workflows/build.yml`) は push / PR ごとに darwin / linux の `homeConfigurations` をビルドし、依存の破損を早期検知します。
 

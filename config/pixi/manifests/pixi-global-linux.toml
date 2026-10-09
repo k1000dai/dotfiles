@@ -26,6 +26,12 @@ channels = ["conda-forge"]
 dependencies = { python = "3.12.*", ruff = "*", uv = "*" }
 exposed = { python = "python", python3 = "python3", ruff = "ruff", uv = "uv", uvx = "uvx" }
 
+# Claude Code's Stop hook parses JSON and runs repository checks.
+[envs.agent-hooks]
+channels = ["conda-forge"]
+dependencies = { jq = "*", pre-commit = "*" }
+exposed = { jq = "jq", pre-commit = "pre-commit" }
+
 [envs.neovim]
 channels = ["conda-forge"]
 dependencies = { lua = "*", luarocks = "*", nvim = "*", nodejs = "*", python = "3.12.*", tree-sitter-cli = "*" }

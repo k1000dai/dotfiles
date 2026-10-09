@@ -1,2 +1,4 @@
 .DS_Store
 config/github-copilot/
+# Downloaded Claude skills are runtime data, not dotfiles source.
+config/ai-agents/skills/synced/

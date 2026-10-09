@@ -1,30 +1,18 @@
-## Repo Workflow
-* This repository maintains dotfiles for both nix/home-manager environments and non-sudo pixi-based environments.
-* The primary entrypoint is `./script/setup.sh`.
-* `script/setup.sh` uses `BOOTSTRAP_BACKEND=auto` by default.
-* If `nix` is already available, `script/setup.sh` should prefer the nix/home-manager path.
-* If `nix` is not available and the machine is eligible, `script/setup.sh` asks whether to install multi-user nix. Prefer the official `--daemon` install path when the machine is eligible.
-* On macOS, multi-user nix requires `sudo`.
-* On Linux, only attempt multi-user nix when `sudo` is available, `systemd` is present, and SELinux is disabled. Otherwise fall back to pixi.
-* Do not auto-install single-user nix in the default flow.
-* The pixi flow installs `uv` and `pixi` if needed, creates symbolic links into `$HOME`, and runs `pixi global sync`.
-* Shared bootstrap logic lives in `script/lib/bootstrap-common.sh`. If setup behavior changes, update that file in addition to any thin wrappers.
-* `script/update.sh` uses the same backend resolution, but must not prompt to install nix. On the nix path it runs `nix flake update nixpkgs` and reapplies Home Manager. If nix is absent, it should refresh links and run `pixi global sync`.
-* npm-only CLI tools are managed separately in `config/npm/npm-global-packages.txt`.
-* For npm-only packages, do not use npm's default global prefix. Sync them with `npm install -g --prefix "$HOME/.local"` so pixi or nix managed Node environments are not mutated.
-* `czg` is currently managed through that npm global manifest.
-* `@anthropic-ai/claude-code` is intentionally NOT managed via npm. Anthropic recommends the native installer (`curl -fsSL https://claude.ai/install.sh | bash`), so it is installed by `sync_claude_code` in `script/lib/bootstrap-common.sh` and runs as part of both `setup.sh` and `update.sh`. Do not re-add it to `config/npm/npm-global-packages.txt`.
-* `@openai/codex` is likewise NOT managed via npm or nix. It is installed by `sync_codex` in `script/lib/bootstrap-common.sh` with the official standalone installer (`curl -fsSL https://chatgpt.com/codex/install.sh | sh`) into `~/.local/bin/codex`, and runs from both `setup.sh` and `update.sh`. Keep `pkgs.codex` commented out in `home.nix` and do not re-add `@openai/codex` to `config/npm/npm-global-packages.txt`.
-* Dotfiles are linked into `$HOME`, and conflicting files are backed up with `*.bak.<timestamp>`.
-* The pixi global manifest is managed in-repo under `config/pixi/manifests/`.
-* This repository's pixi backend is Linux-only; macOS should use nix/home-manager.
-* On Linux use `config/pixi/manifests/pixi-global-linux.toml`.
+# Repository workflow
 
-## What Codex Should Do After main Updates
-* After updating nix dependencies, first inspect `README.md`, `script/setup.sh`, `script/update.sh`, `script/lib/bootstrap-common.sh`, and `config/pixi/manifests/`.
-* Keep nix and pixi flows aligned. If a tool is added on the nix side and should also exist in the non-sudo environment, add it to the appropriate pixi global manifest too.
-* If a CLI can only be installed via `npm -g`, add it to `config/npm/npm-global-packages.txt` instead of relying on manual install.
-* If there are new dependencies, document any special installation instructions in `README.md` and, when relevant, in the bootstrap scripts.
-* If there are new dotfiles or changes to existing ones, update the symbolic linking logic in `script/lib/bootstrap-common.sh` and document the change in `README.md`.
-* If you touch the pixi path, prefer validating with `BOOTSTRAP_BACKEND=pixi` and `DRY_RUN=1` before making broader claims.
-* If you touch the nix install path, validate that `setup.sh` prompts for multi-user nix and that `update.sh` does not prompt for installation.
+- Read `README.md` for setup and layout. Entrypoints are `script/setup.sh` and `script/update.sh`; shared behavior belongs in `script/lib/bootstrap-common.sh`.
+- Keep these backend rules intact:
+  - Prefer an existing nix installation. macOS uses nix/Home Manager; the pixi backend is Linux-only.
+  - Setup may offer multi-user nix (`--daemon`) with sudo; Linux also requires systemd and disabled SELinux. Do not auto-install single-user nix.
+  - Update must never prompt to install nix. It updates nixpkgs and reapplies Home Manager, or refreshes Linux pixi links and runs `pixi global sync` when nix is absent.
+- Keep shared CLI tools aligned between `home*.nix` and `config/pixi/manifests/pixi-global-linux.toml` where available.
+- Manage npm-only CLIs in `config/npm/npm-global-packages.txt`, installed with `--prefix "$HOME/.local"`.
+- Claude Code, Codex, and herdr use `sync_claude_code` / `sync_codex` / `sync_herdr` in the shared bootstrap script. Do not add them to npm manifests or nix packages.
+- When adding or relocating dotfiles, update Home Manager declarations, `setup_links` in the shared bootstrap script, and `README.md`. Preserve `*.bak.<timestamp>` backups for link conflicts.
+- Shared agent instructions live in `config/ai-agents/INSTRUCTIONS.md`; `config/claude/CLAUDE.md` and `config/codex/AGENTS.md` are symlinks to it. Keep repository-specific rules here.
+
+# Validation
+
+- `.pre-commit-config.yaml` defines whitespace/YAML checks, `nixfmt`, and `shellcheck`. CI builds the Darwin and Linux Home Manager configurations.
+- For bootstrap changes, run shell syntax/lint checks. Validate pixi changes on Linux with `BOOTSTRAP_BACKEND=pixi DRY_RUN=1`; on macOS, use a mocked Linux environment or report the platform limitation.
+- For nix installation changes, verify that setup offers multi-user nix only on eligible machines and update never prompts to install it.

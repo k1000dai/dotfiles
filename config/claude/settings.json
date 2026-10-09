@@ -5,24 +5,14 @@
   "permissions": {
     "defaultMode": "auto"
   },
+  "model": "opus",
   "hooks": {
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "in=$(cat); sid=$(printf '%s' \"$in\" | jq -r '.session_id // empty'); f=\"${TMPDIR:-/tmp}/yachiyo-noclient-${sid:-global}\"; [ -f \"$f\" ] && exit 0; ac=$(curl -s -m 5 http://koheimacbook-air:8787/api/status 2>/dev/null | jq -r '.alive_clients // 0' 2>/dev/null); [ \"${ac:-0}\" -ge 1 ] 2>/dev/null || { touch \"$f\"; exit 0; }; tp=$(printf '%s' \"$in\" | jq -r '.transcript_path // empty'); t=\"タスクが完了しました\"; if [ -z \"$YACHIYO_STOP_HOOK\" ] && [ -n \"$tp\" ] && [ -f \"$tp\" ]; then p=$(grep '\"type\":\"last-prompt\"' \"$tp\" | tail -1 | jq -r '(.lastPrompt // \"\") | gsub(\"\\\\s+\"; \" \") | .[0:200]'); if [ -n \"$p\" ]; then s=$(YACHIYO_STOP_HOOK=1 claude --model haiku --settings '{\"disableAllHooks\":true}' --strict-mcp-config --mcp-config '{\"mcpServers\":{}}' -p \"次のユーザー指示を日本語15文字以内の体言止めのタスク名に要約。タスク名のみ出力、引用符・句点なし。指示: $p\" 2>/dev/null | tr -d '\\n'); [ -n \"$s\" ] && t=\"${s}、のタスクが完了しました\"; fi; fi; curl -s -m 5 -X POST http://koheimacbook-air:8787/api/speak -H 'Content-Type: application/json' -d \"$(jq -n --arg t \"$t\" '{text:$t,emotion:\"smile\"}')\" >/dev/null 2>&1 || true",
-            "timeout": 90,
-            "statusMessage": "ヤチヨに報告中...",
-            "async": true
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "in=$(cat); [ \"$(printf '%s' \"$in\" | jq -r '.stop_hook_active // false')\" = \"true\" ] && exit 0; [ -f .pre-commit-config.yaml ] || exit 0; git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0; [ -n \"$(git status --porcelain 2>/dev/null)\" ] || exit 0; export PATH=\"$HOME/.local/bin:$PATH\"; out=$(pre-commit run --all-files 2>&1); code=$?; [ $code -eq 0 ] && exit 0; jq -n --arg r \"$(printf '%s' \"$out\" | tail -c 3000)\" '{decision:\"block\",reason:(\"pre-commit run --all-files failed. Fix the issues and re-run until it passes:\\n\\n\" + $r)}'",
+            "command": "sh \"$HOME/.claude/hooks/pre-commit-stop.sh\"",
             "timeout": 300,
             "statusMessage": "pre-commit run --all-files 実行中..."
           }
@@ -35,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash '/Users/kohei/.claude/hooks/herdr-agent-state.sh' session",
+            "command": "sh \"$HOME/.claude/hooks/herdr-agent-state.sh\" session",
             "timeout": 10
           }
         ]
@@ -49,10 +39,46 @@
     "frontend-design@claude-plugins-official": true
   },
   "effortLevel": "xhigh",
+  "modelSettings": {
+    "claude-fable-5-1": {
+      "effortLevel": "high"
+    },
+    "claude-opus-5-5": {
+      "effortLevel": "high"
+    }
+  },
   "tui": "fullscreen",
   "skipWorkflowUsageWarning": true,
   "theme": "dark-ansi",
   "autoCompactEnabled": true,
   "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "autoMode": {
+    "environment": [
+      "### Org-wide",
+      "**Organization**: None configured",
+      "**Cloud provider(s)**: None configured",
+      "**Repository visibility**: PUBLIC — iory/learning-os-from-arduino (this repo's origin remote); any push here is publishing",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
+      "**Secrets management**: None configured",
+      "**Default / protected branches**: Default branch main; no rulesets listed; no protected branches listed via gh — treat as unprotected",
+      "**CI/CD deploy targets**: None configured",
+      "**Network posture**: None configured",
+      "**Host containment**: None configured — assume Claude Code runs on an ordinary developer machine or CI runner with open internet",
+      "**Source control**: The trusted repo (iory/learning-os-from-arduino) and its origin remote only — public visibility, so only this repo's own work belongs here",
+      "**Trusted internal domains**: None configured",
+      "**Trusted cloud buckets**: None configured",
+      "**Key internal services**: None configured",
+      "**Internal package registry**: None configured",
+      "**Sensitive data locations & audiences**: any file or store holding personal data, confidential business data, credentials, regulated data, or similarly sensitive material; preserve exact handles when known and share only with audiences cleared at the [named+specifics] bar",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries prod or production as a whole word or name segment",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries prod or production as a whole word or name segment",
+      "### User-specific",
+      "**Primary use of Claude Code**: software development",
+      "**Trusted repo**: /Users/kohei/codes/ghq/github.com/iory/learning-os-from-arduino (working directory for docs/os-on-arduino/code) and its origin remote ssh://github.com/iory/learning-os-from-arduino.git — PUBLIC repo, so only this repo's own work is appropriate to commit or push here",
+      "**Org-specific CLIs**: None configured — note: herdr appears in shell history (30×) but CLAUDE.md gates it behind HERDR_ENV=1 and task relevance, not treated as routine here"
+    ]
+  }
 }

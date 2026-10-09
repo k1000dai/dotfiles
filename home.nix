@@ -88,7 +88,10 @@
   fonts.fontconfig.enable = true;
   home.file = {
     ".tmux.conf".source = ./.tmux.conf;
-    ".codex/AGENTS.md".source = ./config/codex/AGENTS.md;
+    ".codex/AGENTS.md".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/codex/AGENTS.md";
+    ".agents/skills/sanitize-artifacts".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/ai-agents/skills/sanitize-artifacts";
     # out-of-store: Codex writes new/regenerated pets straight into the repo
     ".codex/pets".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/codex/pets";
@@ -97,6 +100,13 @@
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/claude/CLAUDE.md";
     ".claude/skills".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/ai-agents/skills";
+    ".claude/settings.json".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/claude/settings.json";
+    # File-level links leave room for integration-managed and local hooks.
+    ".claude/hooks/herdr-agent-state.sh".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/claude/hooks/herdr-agent-state.sh";
+    ".claude/hooks/pre-commit-stop.sh".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/claude/hooks/pre-commit-stop.sh";
     ".zshrc_extra".source = ./.zshrc;
     ".zshrc.d".source = ./.zshrc.d;
     ".zsh/git-prompt.sh".source = ./.zsh/git-prompt.sh;
