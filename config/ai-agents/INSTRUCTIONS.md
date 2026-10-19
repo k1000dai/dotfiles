@@ -10,6 +10,13 @@
 - Use `uv` for Python projects and `uv run` for project commands. Use `pixi` for projects with a conda environment or non-PyPI dependencies. Follow the project's existing environment configuration.
 - Only control herdr when the task requires it and `HERDR_ENV=1`. Read `herdr --skill` first and use subcommands; bare `herdr` opens the TUI.
 
+# Git
+
+- Commit with `czg` using cz-git's Conventional Commits format: `type(scope): subject` (types such as `feat`, `fix`, `docs`, `refactor`, `chore`), imperative subject, optional body and trailers after a blank line. Follow the repository's own commit config or history if it differs.
+- `czg` is interactive; agents submit the message non-interactively through a temporary alias config (the file must end in `.json`):
+  `dir=$(mktemp -d) && jq -n --arg m "$msg" '{alias:{agent:$m}}' > "$dir/cz.json" && czg --config="$dir/cz.json" :agent; rm -rf "$dir"`
+- Fall back to `git commit` with the same format only when `czg` is unavailable.
+
 # Validation
 
 - Run checks relevant to the change; add regression tests for bug fixes when practical. Do not weaken tests to make them pass.

@@ -17,6 +17,7 @@ repos:
       - id: shellcheck
         name: shellcheck
         entry: shellcheck
+        args: [-x]
         language: system
         files: \.sh$
         exclude: ^\.zsh/git-prompt\.sh$
