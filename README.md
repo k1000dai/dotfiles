@@ -209,31 +209,38 @@ macOS / Linux の Home Manager と Linux pixi で同じ設定をリンクしま�
 # 手元にインストールされている両 CLI を登録（片方だけなら setup codex / setup claude）
 observatory setup
 observatory status
-# Codex: ブラウザでサイト所有者のアカウントにログイン
+# Codex: 接続手順を表示（直接のMCP OAuthログインは行わない）
 observatory login codex
+codex
+# Codex内で /plugins → Personal → Agent Observatory をインストール・接続
 # Claude Code: 起動後に /mcp → observatory → Authenticate
 claude
 ```
 
 リンク反映前でも `python3 ~/.dotfiles/script/observatory.py setup` で実行できます。CLI が未導入なら通常の setup/update を先に実行してください。
 
-- Codex: `${CODEX_HOME:-~/.codex}/config.toml` に下記の専用テーブルだけを追記します。既存設定は保持し、ファイルは atomic に更新して mode 600 にします。既存の同名接続は検査し、異なる URL / OAuth resource / stdio 設定は上書きしません。symlink や安全に追記できない inline table は手動設定に切り替えます。
+- Codex: Sitesが生成する **Agent Observatory プラグイン**を使います。`codex` 内で `/plugins` → Personal からインストール・接続してください。`observatory setup codex` は報告用マーカーだけを作り、`config.toml` に直接MCP接続を追加しません。プラグインのインストールやログインの成功は自動判定しません。
 - Claude Code: 公式の `claude mcp add --transport http --scope user observatory <URL>` を実行し、全プロジェクトで利用できる user scope に登録します。`~/.claude.json`（`CLAUDE_CONFIG_DIR` 指定時はそのディレクトリ内）の既存接続を保持します。プロジェクト側の同名定義が優先される場合は `/mcp` で実際の接続先を確認してください。
 - `observatory status` はローカル設定の確認です。ログイン成功やネットワーク疎通は保証しません。各 CLI を再起動し、「Observatory の list_tasks を呼んで」と依頼して接続を確認してください。認証・CLI バージョン・サイトの利用制限によって接続できない場合があります。Claude Code からの実ログインは未検証です。
 - OAuth は各 CLI が管理します。トークン、Cookie、service bypass token、認証済みヘッダーを dotfiles に追加しないでください。サイトは所有者限定のまま使い、接続のために公開しないでください。
 
-Codex の手動設定例（既存の同名テーブルがあればその中に統合し、二重定義しないこと）:
+#### 旧設定からの移行: Dynamic client registration not supported
 
-```toml
-[mcp_servers.observatory]
-url = "https://agent-observatory-hub.peachy-pony-3346.chatgpt.site/mcp"
-oauth_resource = "https://agent-observatory-hub.peachy-pony-3346.chatgpt.site/mcp"
-enabled_tools = ["register_task", "update_task", "list_tasks"]
+初期版の `observatory setup` は直接の HTTP MCP 定義を追加していました。`observatory login codex` で DCR エラーになる場合はその定義を削除し、Sites が生成するプラグインから接続します。
+
+```bash
+codex mcp remove observatory
+codex
+# Codex内で /plugins → Personal → Agent Observatory → Install / Connect
 ```
+
+`observatory login codex` は現在、この手順を表示するだけで DCR を実行しません。既存の直接接続も自動削除しません。更新後に `observatory setup codex` を実行して報告を有効化し、新しいセッションで `list_tasks` を呼んで接続を確認します。同じ ChatGPT アカウントでログインしてください。プラグインが表示されない場合は接続済みとは扱わず、CLIのバージョン・アカウント・プラグインの利用可否を確認します。
+
+Claude Code の直接接続は外部クライアントの OAuth 互換性が未確認です。同じ DCR エラーになる場合、現在のスクリプトだけでは認証を完了できません。トークンのハードコードやサイトの公開で回避しないでください。
 
 #### 作業の報告ルール
 
-`observatory setup` は `${XDG_CONFIG_HOME:-~/.config}/observatory/enabled` を作成します。共通指示はこのファイルと接続済み MCP を確認してから、作業を登録・更新します。手動設定した場合は `observatory setup codex` / `observatory setup claude` を実行すると接続を検査して報告を有効化できます。
+`observatory setup` は `${XDG_CONFIG_HOME:-~/.config}/observatory/enabled` を作成します。共通指示はこのファイルと接続済み MCP を確認してから、作業を登録・更新します。プラグインを接続した後、`observatory setup codex` で報告を有効化できます。マーカーの存在は実際の接続成功を保証しません。
 
 | タイミング | MCP 操作 |
 | --- | --- |

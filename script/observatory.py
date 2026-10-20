@@ -7,7 +7,6 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
-import tempfile
 import tomllib
 
 URL = "https://agent-observatory-hub.peachy-pony-3346.chatgpt.site/mcp"
@@ -63,36 +62,6 @@ def validate(client):
     return value
 
 
-def install_codex():
-    path = paths("codex")
-    if path.is_symlink():
-        raise RuntimeError("Codex config is a symlink; add the documented MCP block to its source manually.")
-    original = path.read_bytes() if path.exists() else b""
-    block = ('\n[mcp_servers.observatory]\n'
-             f'url = "{URL}"\n'
-             f'oauth_resource = "{URL}"\n'
-             'enabled_tools = ["register_task", "update_task", "list_tasks"]\n')
-    combined = original + block.encode()
-    # Reject conflicting inline tables without touching the user's file.
-    try:
-        tomllib.loads(combined.decode())
-    except ValueError as exc:
-        raise RuntimeError("Cannot append MCP table safely; use the documented block manually.") from exc
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = None
-    try:
-        with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as stream:
-            temp = Path(stream.name)
-            stream.write(combined)
-        temp.chmod(0o600)
-        if (path.read_bytes() if path.exists() else b"") != original:
-            raise RuntimeError("Codex config changed during setup; retry.")
-        temp.replace(path)
-    finally:
-        if temp and temp.exists():
-            temp.unlink()
-
-
 def setup(target):
     clients = ["codex", "claude"] if target == "all" else [target]
     available = [c for c in clients if shutil.which(c)]
@@ -103,7 +72,8 @@ def setup(target):
     for client in available:
         if existing[client] is None:
             if client == "codex":
-                install_codex()
+                print("Codex: install/connect Agent Observatory from /plugins → Personal.")
+                continue
             else:
                 # CLI owns the JSON merge. Suppress output that might contain local data.
                 result = subprocess.run(["claude", "mcp", "add", "--transport", "http", "--scope", "user", NAME, URL], capture_output=True, timeout=30, check=False)
@@ -111,11 +81,14 @@ def setup(target):
                     raise RuntimeError("Claude MCP registration failed; inspect `claude mcp get observatory` locally.")
             if validate(client) is None:
                 raise RuntimeError(f"{client}: registration could not be verified.")
-        print(f"{client}: configured (OAuth login still needs verification).")
+        if client == "codex":
+            print("Codex: legacy direct MCP entry found. Run `codex mcp remove observatory`, then use /plugins → Personal → Agent Observatory.")
+        else:
+            print(f"{client}: configured (OAuth login still needs verification).")
     marker().parent.mkdir(parents=True, exist_ok=True)
     marker().touch(mode=0o600)
     print("Reporting enabled. Restart your agent sessions after authentication.")
-    print("Codex: observatory login codex; Claude Code: /mcp → observatory → authenticate.")
+    print("Codex: /plugins → Personal → Agent Observatory; Claude Code: /mcp → observatory → authenticate (external OAuth compatibility unverified).")
     for client in set(clients) - set(available):
         print(f"{client}: CLI not installed; skipped.")
 
@@ -127,7 +100,7 @@ def main():
     command.add_argument("client", nargs="?", choices=["all", "codex", "claude"], default="all")
     sub.add_parser("status", help="Show local configuration only; does not verify login")
     sub.add_parser("disable", help="Disable reporting instructions; keep MCP settings and login")
-    command = sub.add_parser("login", help="Run the official Codex OAuth browser login")
+    command = sub.add_parser("login", help="Show the supported Sites plugin connection flow")
     command.add_argument("client", choices=["codex"])
     args = parser.parse_args()
     try:
@@ -144,10 +117,12 @@ def main():
                 print(f"{client}: {state}; CLI {'installed' if shutil.which(client) else 'not installed'}")
             print("Local configuration only. Verify authenticated list_tasks in each client.")
         else:
-            if validate("codex") is None or not shutil.which("codex"):
-                raise RuntimeError("Run `observatory setup codex` first.")
-            # The resource value is public metadata returned by Sites, not a credential.
-            return subprocess.call(["codex", "-c", f'mcp_servers.observatory.oauth_resource="{URL}"', "mcp", "login", NAME])
+            print("Sites uses its generated Agent Observatory plugin; direct DCR login is not supported by this helper.")
+            if entry("codex") is not None:
+                validate("codex")
+                print("Remove the legacy direct entry: codex mcp remove observatory")
+            print("Run codex, open /plugins, then install/connect Personal → Agent Observatory.")
+            print("Restart the session and ask it to call list_tasks to verify the connection.")
     except (RuntimeError, OSError, subprocess.TimeoutExpired) as exc:
         if isinstance(exc, RuntimeError):
             print(f"observatory: {exc}", file=sys.stderr)

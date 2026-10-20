@@ -6,10 +6,8 @@ import io
 import json
 import os
 from pathlib import Path
-import stat
 import subprocess
 import tempfile
-import tomllib
 import unittest
 from unittest.mock import patch
 
@@ -38,19 +36,24 @@ class SetupTests(unittest.TestCase):
         return path
 
     @patch.object(OBS.shutil, "which", return_value="/mock/cli")
-    def test_codex_preserves_settings_and_rerun(self, _which):
-        original = 'model = "existing-model"\n[mcp_servers.other]\nurl = "https://example.invalid"\n'
-        path = self.write("codex", original)
-        OBS.setup("codex")
-        first = path.read_bytes()
-        OBS.setup("codex")
-        self.assertEqual(first, path.read_bytes())
-        self.assertTrue(first.startswith(original.encode()))
-        server = tomllib.loads(first.decode())["mcp_servers"]["observatory"]
-        self.assertEqual(server["url"], OBS.URL)
-        self.assertEqual(server["oauth_resource"], OBS.URL)
-        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+    def test_codex_setup_does_not_create_direct_mcp(self, _which):
+        path = self.write("codex", 'model = "existing-model"\n')
+        original = path.read_bytes()
+        with patch.object(OBS.subprocess, "run") as run:
+            OBS.setup("codex")
+            OBS.setup("codex")
+            run.assert_not_called()
+        self.assertEqual(original, path.read_bytes())
         self.assertTrue(OBS.marker().exists())
+        self.assertIn("/plugins", self.output.getvalue())
+
+    def test_login_never_attempts_dcr(self):
+        self.write("codex", f'[mcp_servers.observatory]\nurl = "{OBS.URL}"\n')
+        with patch.object(OBS.sys, "argv", ["observatory", "login", "codex"]), patch.object(OBS.subprocess, "call") as call:
+            self.assertEqual(OBS.main(), 0)
+            call.assert_not_called()
+        self.assertIn("codex mcp remove observatory", self.output.getvalue())
+        self.assertIn("/plugins", self.output.getvalue())
 
     @patch.object(OBS.shutil, "which", return_value="/mock/cli")
     def test_conflict_preflight_does_not_write_other_client(self, _which):
@@ -95,21 +98,17 @@ class SetupTests(unittest.TestCase):
                     OBS.validate(client)
                 self.assertNotIn("SECRET", str(error.exception))
 
-    def test_symlink_and_inline_table_preserved(self):
+    @patch.object(OBS.shutil, "which", return_value="/mock/cli")
+    def test_codex_symlink_is_not_replaced(self, _which):
         source = self.root / "managed.toml"
-        source.write_text('model="existing"\n')
+        original = 'model="existing"\n'
+        source.write_text(original)
         path = OBS.paths("codex")
         path.parent.mkdir(parents=True)
         path.symlink_to(source)
-        with self.assertRaises(RuntimeError):
-            OBS.install_codex()
-        self.assertEqual(source.read_text(), 'model="existing"\n')
-        path.unlink()
-        original = 'mcp_servers = {other = {url = "https://example.invalid"}}\n'
-        path.write_text(original)
-        with self.assertRaises(RuntimeError):
-            OBS.install_codex()
-        self.assertEqual(path.read_text(), original)
+        OBS.setup("codex")
+        self.assertTrue(path.is_symlink())
+        self.assertEqual(source.read_text(), original)
 
     @patch.object(OBS.shutil, "which", return_value=None)
     def test_missing_cli_no_writes(self, _which):
