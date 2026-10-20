@@ -6,7 +6,6 @@ import io
 import json
 import os
 from pathlib import Path
-import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -66,29 +65,23 @@ class SetupTests(unittest.TestCase):
         self.assertFalse(OBS.marker().exists())
 
     @patch.object(OBS.shutil, "which", return_value="/mock/cli")
-    def test_claude_cli_user_scope_and_no_duplicate(self, _which):
-        self.write("claude", '{"other":"preserve"}')
-
-        def fake_run(argv, **kwargs):
-            self.assertEqual(argv, ["claude", "mcp", "add", "--transport", "http", "--scope", "user", "observatory", OBS.URL])
-            value = json.loads(OBS.paths("claude").read_text())
-            value["mcpServers"] = {"observatory": {"type": "http", "url": OBS.URL}}
-            OBS.paths("claude").write_text(json.dumps(value))
-            return subprocess.CompletedProcess(argv, 0)
-
-        with patch.object(OBS.subprocess, "run", side_effect=fake_run) as run:
-            OBS.setup("claude")
-            OBS.setup("claude")
-            self.assertEqual(run.call_count, 1)
-        self.assertEqual(json.loads(OBS.paths("claude").read_text())["other"], "preserve")
+    def test_claude_setup_refuses_unsupported_oauth(self, _which):
+        path = self.write("claude", '{"other":"preserve"}')
+        original = path.read_bytes()
+        with patch.object(OBS.subprocess, "run") as run:
+            with self.assertRaisesRegex(RuntimeError, "direct Sites OAuth"):
+                OBS.setup("claude")
+            run.assert_not_called()
+        self.assertEqual(original, path.read_bytes())
+        self.assertFalse(OBS.marker().exists())
 
     @patch.object(OBS.shutil, "which", return_value="/mock/cli")
-    def test_claude_failure_does_not_enable(self, _which):
-        with patch.object(OBS.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, stderr="SECRET")):
-            with self.assertRaisesRegex(RuntimeError, "registration failed"):
-                OBS.setup("claude")
-        self.assertFalse(OBS.marker().exists())
-        self.assertNotIn("SECRET", self.output.getvalue())
+    def test_all_skips_claude_without_registration(self, _which):
+        with patch.object(OBS.subprocess, "run") as run:
+            OBS.setup("all")
+            run.assert_not_called()
+        self.assertFalse(OBS.paths("claude").exists())
+        self.assertIn("Claude Code integration is not ready", self.output.getvalue())
 
     def test_invalid_configs_redact_contents(self):
         for client, content in [("codex", 'secret = "SECRET'), ("claude", '{"token":"SECRET"'), ("claude", '[]')]:

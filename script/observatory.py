@@ -69,26 +69,19 @@ def setup(target):
         raise RuntimeError("Requested CLI is not installed. Run dotfiles setup/update first.")
     # Inspect both before the first write; never replace a conflicting definition.
     existing = {c: validate(c) for c in available}
+    if target == "claude":
+        raise RuntimeError("Claude Code direct Sites OAuth is not working with this endpoint. Remove the old entry with `claude mcp remove --scope user observatory`. No configuration was changed.")
     for client in available:
-        if existing[client] is None:
-            if client == "codex":
-                print("Codex: install/connect Agent Observatory from /plugins → Personal.")
-                continue
-            else:
-                # CLI owns the JSON merge. Suppress output that might contain local data.
-                result = subprocess.run(["claude", "mcp", "add", "--transport", "http", "--scope", "user", NAME, URL], capture_output=True, timeout=30, check=False)
-                if result.returncode:
-                    raise RuntimeError("Claude MCP registration failed; inspect `claude mcp get observatory` locally.")
-            if validate(client) is None:
-                raise RuntimeError(f"{client}: registration could not be verified.")
-        if client == "codex":
+        if client == "claude":
+            print("Claude Code: direct Sites OAuth unavailable; skipped. Remove any legacy entry with `claude mcp remove --scope user observatory`.")
+        elif existing[client] is not None:
             print("Codex: legacy direct MCP entry found. Run `codex mcp remove observatory`, then use /plugins → Personal → Agent Observatory.")
         else:
-            print(f"{client}: configured (OAuth login still needs verification).")
+            print("Codex: install/connect Agent Observatory from /plugins → Personal.")
     marker().parent.mkdir(parents=True, exist_ok=True)
     marker().touch(mode=0o600)
     print("Reporting enabled. Restart your agent sessions after authentication.")
-    print("Codex: /plugins → Personal → Agent Observatory; Claude Code: /mcp → observatory → authenticate (external OAuth compatibility unverified).")
+    print("Codex: /plugins → Personal → Agent Observatory. Claude Code integration is not ready.")
     for client in set(clients) - set(available):
         print(f"{client}: CLI not installed; skipped.")
 

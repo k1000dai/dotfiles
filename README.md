@@ -213,14 +213,13 @@ observatory status
 observatory login codex
 codex
 # Codex内で /plugins → Personal → Agent Observatory をインストール・接続
-# Claude Code: 起動後に /mcp → observatory → Authenticate
-claude
+# Claude Code: 現在このSitesエンドポイントへの直接接続は利用できません
 ```
 
 リンク反映前でも `python3 ~/.dotfiles/script/observatory.py setup` で実行できます。CLI が未導入なら通常の setup/update を先に実行してください。
 
 - Codex: Sitesが生成する **Agent Observatory プラグイン**を使います。`codex` 内で `/plugins` → Personal からインストール・接続してください。`observatory setup codex` は報告用マーカーだけを作り、`config.toml` に直接MCP接続を追加しません。プラグインのインストールやログインの成功は自動判定しません。
-- Claude Code: 公式の `claude mcp add --transport http --scope user observatory <URL>` を実行し、全プロジェクトで利用できる user scope に登録します。`~/.claude.json`（`CLAUDE_CONFIG_DIR` 指定時はそのディレクトリ内）の既存接続を保持します。プロジェクト側の同名定義が優先される場合は `/mcp` で実際の接続先を確認してください。
+- Claude Code: Sitesへの直接OAuth接続でHTML応答のJSON parse errorが発生しているため、自動登録しません。`setup claude` は未対応のエラーを返し、`setup all` はClaude Codeをスキップします。旧設定は `claude mcp remove --scope user observatory` で削除してください。Claude Codeから報告するには、別途対応する認証経路の実装・検証が必要です。
 - `observatory status` はローカル設定の確認です。ログイン成功やネットワーク疎通は保証しません。各 CLI を再起動し、「Observatory の list_tasks を呼んで」と依頼して接続を確認してください。認証・CLI バージョン・サイトの利用制限によって接続できない場合があります。Claude Code からの実ログインは未検証です。
 - OAuth は各 CLI が管理します。トークン、Cookie、service bypass token、認証済みヘッダーを dotfiles に追加しないでください。サイトは所有者限定のまま使い、接続のために公開しないでください。
 
@@ -236,7 +235,7 @@ codex
 
 `observatory login codex` は現在、この手順を表示するだけで DCR を実行しません。既存の直接接続も自動削除しません。更新後に `observatory setup codex` を実行して報告を有効化し、新しいセッションで `list_tasks` を呼んで接続を確認します。同じ ChatGPT アカウントでログインしてください。プラグインが表示されない場合は接続済みとは扱わず、CLIのバージョン・アカウント・プラグインの利用可否を確認します。
 
-Claude Code の直接接続は外部クライアントの OAuth 互換性が未確認です。同じ DCR エラーになる場合、現在のスクリプトだけでは認証を完了できません。トークンのハードコードやサイトの公開で回避しないでください。
+Claude Code の直接接続では認証処理がHTMLをJSONとして解釈して失敗する事象が確認されています。現在のスクリプトでは認証を完了できません。トークンのハードコードやサイトの公開で回避しないでください。
 
 #### 作業の報告ルール
 
