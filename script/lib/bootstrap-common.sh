@@ -336,6 +336,7 @@ setup_links() {
   link_path "${REPO_ROOT}/config/ai-agents/skills/sanitize-artifacts" "${HOME}/.agents/skills/sanitize-artifacts"
   link_path "${REPO_ROOT}/config/claude/hooks/herdr-agent-state.sh" "${HOME}/.claude/hooks/herdr-agent-state.sh"
   link_path "${REPO_ROOT}/config/claude/hooks/pre-commit-stop.sh" "${HOME}/.claude/hooks/pre-commit-stop.sh"
+  link_path "${REPO_ROOT}/script/observatory.py" "${HOME}/.local/bin/observatory"
 
   link_path "${REPO_ROOT}/config/nvim" "${HOME}/.config/nvim"
   link_path "${REPO_ROOT}/config/lazygit" "${HOME}/.config/lazygit"

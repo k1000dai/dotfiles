@@ -87,6 +87,11 @@
   ];
   fonts.fontconfig.enable = true;
   home.file = {
+    ".local/bin/observatory" = {
+      source =
+        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/script/observatory.py";
+      executable = true;
+    };
     ".tmux.conf".source = ./.tmux.conf;
     ".codex/AGENTS.md".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/codex/AGENTS.md";

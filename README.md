@@ -197,6 +197,70 @@ macOS / Linux の Home Manager と Linux pixi で同じ設定をリンクしま�
 - hooks は `~/.claude/hooks/` にファイル単位でリンクします。herdr の生成管理 hook と独自の `pre-commit-stop.sh` を分けています。
 - Stop hook はイベントの `cwd` から Git root を解決し、`.pre-commit-config.yaml` と変更がある場合だけ検査します。サブディレクトリからの起動にも対応し、hook による継続時の再帰実行を避けます。
 
+### Agent Observatory: Claude Code / Codex の一元管理
+
+ダッシュボード: <https://agent-observatory-hub.peachy-pony-3346.chatgpt.site>
+
+`script/observatory.py` を Home Manager / Linux pixi の両方で `~/.local/bin/observatory` にリンクします。Python 3.11 以上を使い、追加パッケージは不要です。通常の setup/update はリンクを作るだけで、MCP 登録やログイン、データ送信は行いません。
+
+```bash
+# この変更を取り込んで、通常の dotfiles 更新でリンクを反映
+./script/update.sh
+# 手元にインストールされている両 CLI を登録（片方だけなら setup codex / setup claude）
+observatory setup
+observatory status
+# Codex: ブラウザでサイト所有者のアカウントにログイン
+observatory login codex
+# Claude Code: 起動後に /mcp → observatory → Authenticate
+claude
+```
+
+リンク反映前でも `python3 ~/.dotfiles/script/observatory.py setup` で実行できます。CLI が未導入なら通常の setup/update を先に実行してください。
+
+- Codex: `${CODEX_HOME:-~/.codex}/config.toml` に下記の専用テーブルだけを追記します。既存設定は保持し、ファイルは atomic に更新して mode 600 にします。既存の同名接続は検査し、異なる URL / OAuth resource / stdio 設定は上書きしません。symlink や安全に追記できない inline table は手動設定に切り替えます。
+- Claude Code: 公式の `claude mcp add --transport http --scope user observatory <URL>` を実行し、全プロジェクトで利用できる user scope に登録します。`~/.claude.json`（`CLAUDE_CONFIG_DIR` 指定時はそのディレクトリ内）の既存接続を保持します。プロジェクト側の同名定義が優先される場合は `/mcp` で実際の接続先を確認してください。
+- `observatory status` はローカル設定の確認です。ログイン成功やネットワーク疎通は保証しません。各 CLI を再起動し、「Observatory の list_tasks を呼んで」と依頼して接続を確認してください。認証・CLI バージョン・サイトの利用制限によって接続できない場合があります。Claude Code からの実ログインは未検証です。
+- OAuth は各 CLI が管理します。トークン、Cookie、service bypass token、認証済みヘッダーを dotfiles に追加しないでください。サイトは所有者限定のまま使い、接続のために公開しないでください。
+
+Codex の手動設定例（既存の同名テーブルがあればその中に統合し、二重定義しないこと）:
+
+```toml
+[mcp_servers.observatory]
+url = "https://agent-observatory-hub.peachy-pony-3346.chatgpt.site/mcp"
+oauth_resource = "https://agent-observatory-hub.peachy-pony-3346.chatgpt.site/mcp"
+enabled_tools = ["register_task", "update_task", "list_tasks"]
+```
+
+#### 作業の報告ルール
+
+`observatory setup` は `${XDG_CONFIG_HOME:-~/.config}/observatory/enabled` を作成します。共通指示はこのファイルと接続済み MCP を確認してから、作業を登録・更新します。手動設定した場合は `observatory setup codex` / `observatory setup claude` を実行すると接続を検査して報告を有効化できます。
+
+| タイミング | MCP 操作 |
+| --- | --- |
+| 新しい作業 | `register_task(title, agent, parent?, detail?)` → 戻り値の ID を保持 |
+| 作業開始 | `update_task(id, "running")` |
+| 依存関係・判断待ち | `update_task(id, "blocked")` |
+| 作業と必要な確認が完了 | `update_task(id, "done")` |
+| 子エージェントへ委譲 | 親が `parent=<親ID>` で子タスクを登録し、子にその ID を渡す |
+
+例: 「Observatory に『認証APIの実装』を登録してから作業し、子タスクも親IDで紐づけて。進捗と完了を更新して」。`queued` は登録直後・開始前の状態です。agent 名に `Codex · backend` などの役割を含めると見分けやすくなります。
+
+報告はエージェントが指示に従って MCP を呼ぶ方式です。CLI の全プロセス・全 tool call・クラッシュを自動検出する hooks や、実行停止・コマンド配信は実装していません。既存の herdr / pre-commit hooks は変更しません。切断・認証切れ・中断時は表示が古いまま残る可能性があります。
+
+送信対象は機密性を確認した短いタスク情報のみです。プロンプト全文、会話ログ、コード、diff、環境変数、絶対パス、秘密情報は送信しません。ユーザーや各リポジトリの制約を優先します。MCP が使えない場合は報告の失敗を一度伝えて本来の作業を継続します。
+
+```bash
+# 共通指示による報告を停止。再開は observatory setup
+observatory disable
+# MCP 自体も外す場合（CLI が管理する認証情報の整理は各公式手順に従う）
+codex mcp remove observatory
+claude mcp remove --scope user observatory
+```
+
+`disable` は報告用マーカーだけを削除し、接続設定・ログイン情報は残します。指示を再読込するためエージェントの新しいセッションで反映してください。
+
+公式仕様: [Codex MCP](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)、[Codex config reference](https://learn.chatgpt.com/docs/config-file/config-reference)、[Claude Code MCP](https://code.claude.com/docs/en/mcp)。
+
 ### Codex pet
 
 Codex desktop の custom pet「ヤチヨ」も `config/codex/pets/` で管理しています (`~/.codex/pets` へ out-of-store link)。
@@ -217,6 +281,7 @@ uv tool install huggingface_hub
 
 | パス | 内容 | リンク先 / 反映方法 |
 | --- | --- | --- |
+| `script/observatory.py` | Observatory の MCP 登録・ログイン補助・報告の有効化 | `~/.local/bin/observatory` (nix / pixi) |
 | `script/setup.sh` / `script/update.sh` | 統合 bootstrap / 更新反映 | - |
 | `flake.nix`, `home*.nix` | Nix / Home Manager 設定 | `home-manager switch --flake` |
 | `config/nvim` | Neovim 設定 | `~/.config/nvim` |
@@ -247,6 +312,7 @@ repo 自体のチェックは pre-commit で行います。
 pre-commit run --all-files
 bash script/tests/test-bootstrap.sh
 bash script/tests/test-agent-hooks.sh
+python3 script/tests/test-observatory.py
 ```
 
 - `nixfmt` (nix ファイル)、`shellcheck` (shell script)、標準 hooks (行末空白・EOF 改行など)

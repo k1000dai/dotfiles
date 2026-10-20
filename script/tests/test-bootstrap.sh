@@ -151,6 +151,7 @@ export PATH
   printf 'runtime state\n' > "$HOME/.config/herdr/runtime"
   setup_links > /dev/null 2>&1
   for mapping in \
+    '.local/bin/observatory:script/observatory.py' \
     '.codex/AGENTS.md:config/codex/AGENTS.md' \
     '.claude/CLAUDE.md:config/claude/CLAUDE.md' \
     '.claude/settings.json:config/claude/settings.json' \
