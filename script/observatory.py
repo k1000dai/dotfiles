@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Opt-in user-level Observatory MCP setup. Python 3.11+, no dependencies."""
+"""Opt-in local stdio MCP setup for Codex and Claude Code. Python 3.11+."""
 import argparse
 import json
 import os
@@ -7,10 +7,12 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
 
 URL = "https://agent-observatory-hub.peachy-pony-3346.chatgpt.site/mcp"
 NAME = "observatory"
+BRIDGE = Path(__file__).resolve().with_name("observatory-mcp.mjs")
 
 
 def paths(client):
@@ -32,10 +34,9 @@ def read_config(client):
         text = path.read_text()
         config = tomllib.loads(text) if client == "codex" else json.loads(text)
         if not isinstance(config, dict):
-            raise ValueError("Expected a configuration object")
+            raise ValueError()
         return config
     except (ValueError, OSError) as exc:
-        # Parser messages may contain source lines, including credentials.
         raise RuntimeError(f"Cannot parse {client} config; repair it locally (contents hidden).") from exc
 
 
@@ -52,36 +53,67 @@ def entry(client):
 
 def validate(client):
     value = entry(client)
-    if value is not None:
-        if value.get("url") != URL or value.get("command"):
-            raise RuntimeError(f"{client}: existing '{NAME}' conflicts; left untouched. Resolve locally first.")
-        if client == "claude" and value.get("type") != "http":
-            raise RuntimeError("claude: existing Observatory transport conflicts; left untouched.")
-        if client == "codex" and value.get("oauth_resource", URL) != URL:
-            raise RuntimeError("codex: OAuth resource conflicts; left untouched.")
+    if value is None:
+        return None
+    if value.get("url") == URL and not value.get("command"):
+        command = "codex mcp remove observatory" if client == "codex" else "claude mcp remove --scope user observatory"
+        raise RuntimeError(f"{client}: legacy HTTP connection found. Run `{command}`, then rerun setup. Nothing was changed.")
+    if Path(value.get("command", "")).name not in ("node", "nodejs") or value.get("args") != [str(BRIDGE), "serve"] or value.get("url"):
+        raise RuntimeError(f"{client}: existing '{NAME}' conflicts; left untouched. Resolve locally first.")
+    if client == "claude" and value.get("type") != "stdio":
+        raise RuntimeError("Claude transport conflicts; left untouched.")
     return value
 
 
+def install_codex(node):
+    path = paths("codex")
+    if path.is_symlink():
+        raise RuntimeError("Codex config is a symlink; add the README stdio block manually.")
+    original = path.read_bytes() if path.exists() else b""
+    block = '\n[mcp_servers.observatory]\ncommand = ' + json.dumps(node) + '\nargs = ' + json.dumps([str(BRIDGE), "serve"]) + '\n'
+    combined = original + block.encode()
+    try:
+        tomllib.loads(combined.decode())
+    except ValueError as exc:
+        raise RuntimeError("Cannot append MCP table safely; add the README stdio block manually.") from exc
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as stream:
+            temp = Path(stream.name)
+            stream.write(combined)
+        temp.chmod(0o600)
+        if (path.read_bytes() if path.exists() else b"") != original:
+            raise RuntimeError("Codex config changed during setup; retry.")
+        temp.replace(path)
+    finally:
+        if temp and temp.exists():
+            temp.unlink()
+
+
 def setup(target):
+    node = shutil.which("node")
+    if not node or not BRIDGE.is_file():
+        raise RuntimeError("Node.js and observatory-mcp.mjs are required. Update dotfiles first.")
     clients = ["codex", "claude"] if target == "all" else [target]
     available = [c for c in clients if shutil.which(c)]
     if not available:
         raise RuntimeError("Requested CLI is not installed. Run dotfiles setup/update first.")
-    # Inspect both before the first write; never replace a conflicting definition.
     existing = {c: validate(c) for c in available}
-    if target == "claude":
-        raise RuntimeError("Claude Code direct Sites OAuth is not working with this endpoint. Remove the old entry with `claude mcp remove --scope user observatory`. No configuration was changed.")
     for client in available:
-        if client == "claude":
-            print("Claude Code: direct Sites OAuth unavailable; skipped. Remove any legacy entry with `claude mcp remove --scope user observatory`.")
-        elif existing[client] is not None:
-            print("Codex: legacy direct MCP entry found. Run `codex mcp remove observatory`, then use /plugins → Personal → Agent Observatory.")
-        else:
-            print("Codex: install/connect Agent Observatory from /plugins → Personal.")
+        if existing[client] is None:
+            if client == "codex":
+                install_codex(node)
+            else:
+                result = subprocess.run(["claude", "mcp", "add", "--transport", "stdio", "--scope", "user", NAME, "--", node, str(BRIDGE), "serve"], capture_output=True, timeout=30, check=False)
+                if result.returncode:
+                    raise RuntimeError("Claude stdio registration failed; inspect `claude mcp get observatory` locally.")
+            if validate(client) is None:
+                raise RuntimeError(f"{client}: registration could not be verified.")
+        print(f"{client}: local stdio bridge configured.")
     marker().parent.mkdir(parents=True, exist_ok=True)
     marker().touch(mode=0o600)
-    print("Reporting enabled. Restart your agent sessions after authentication.")
-    print("Codex: /plugins → Personal → Agent Observatory. Claude Code integration is not ready.")
+    print("Reporting enabled. Run `observatory connect` if not paired, then restart your agents.")
     for client in set(clients) - set(available):
         print(f"{client}: CLI not installed; skipped.")
 
@@ -89,38 +121,35 @@ def setup(target):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
-    command = sub.add_parser("setup", help="Register user-level MCP entries and enable reporting")
+    command = sub.add_parser("setup", help="Register the local stdio bridge and enable reporting")
     command.add_argument("client", nargs="?", choices=["all", "codex", "claude"], default="all")
-    sub.add_parser("status", help="Show local configuration only; does not verify login")
-    sub.add_parser("disable", help="Disable reporting instructions; keep MCP settings and login")
-    command = sub.add_parser("login", help="Show the supported Sites plugin connection flow")
-    command.add_argument("client", choices=["codex"])
+    sub.add_parser("status", help="Show local configuration only")
+    sub.add_parser("disable", help="Disable reporting instructions; retain credentials")
+    command = sub.add_parser("connect", help="Approve this computer in your signed-in browser")
+    command.add_argument("label", nargs="?", default="Local agents")
+    sub.add_parser("disconnect", help="Revoke this connection and delete local credentials")
+    command = sub.add_parser("login", help="Compatibility alias for browser pairing")
+    command.add_argument("client", choices=["codex", "claude"])
     args = parser.parse_args()
     try:
         if args.action == "setup":
             setup(args.client)
         elif args.action == "disable":
             marker().unlink(missing_ok=True)
-            print("Reporting disabled. MCP configuration and credentials were retained.")
+            print("Reporting disabled. Connection and credentials were retained.")
         elif args.action == "status":
             print(f"Reporting: {'enabled' if marker().exists() else 'disabled'}")
             for client in ("codex", "claude"):
-                value = validate(client)
-                state = "configured" if value is not None else "not configured"
-                print(f"{client}: {state}; CLI {'installed' if shutil.which(client) else 'not installed'}")
-            print("Local configuration only. Verify authenticated list_tasks in each client.")
+                print(f"{client}: {'configured' if validate(client) is not None else 'not configured'}")
+            print("Local configuration only. Verify list_tasks in each client.")
         else:
-            print("Sites uses its generated Agent Observatory plugin; direct DCR login is not supported by this helper.")
-            if entry("codex") is not None:
-                validate("codex")
-                print("Remove the legacy direct entry: codex mcp remove observatory")
-            print("Run codex, open /plugins, then install/connect Personal → Agent Observatory.")
-            print("Restart the session and ask it to call list_tasks to verify the connection.")
+            node = shutil.which("node")
+            if not node:
+                raise RuntimeError("Node.js is required.")
+            command = "disconnect" if args.action == "disconnect" else "connect"
+            return subprocess.call([node, str(BRIDGE), command] + ([args.label] if args.action == "connect" else []))
     except (RuntimeError, OSError, subprocess.TimeoutExpired) as exc:
-        if isinstance(exc, RuntimeError):
-            print(f"observatory: {exc}", file=sys.stderr)
-        else:
-            print("observatory: local operation failed (details hidden); inspect configuration locally.", file=sys.stderr)
+        print(f"observatory: {exc}" if isinstance(exc, RuntimeError) else "observatory: operation failed (details hidden).", file=sys.stderr)
         return 1
     return 0
 

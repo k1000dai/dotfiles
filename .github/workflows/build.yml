@@ -24,10 +24,11 @@ jobs:
             experimental-features = nix-command flakes
       - name: Test bootstrap, agent hooks, and Observatory
         run: |
-          nix shell --inputs-from . nixpkgs#bash nixpkgs#jq nixpkgs#python311 --command bash -euc '
+          nix shell --inputs-from . nixpkgs#bash nixpkgs#jq nixpkgs#python311 nixpkgs#nodejs --command bash -euc '
             bash script/tests/test-bootstrap.sh
             bash script/tests/test-agent-hooks.sh
             python3 script/tests/test-observatory.py
+            node --test script/tests/test-observatory-bridge.mjs
           '
       - name: Build Home Manager configuration
         run: nix build .#homeConfigurations.${{ matrix.target }}.activationPackage

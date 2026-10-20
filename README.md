@@ -201,71 +201,64 @@ macOS / Linux の Home Manager と Linux pixi で同じ設定をリンクしま�
 
 ダッシュボード: <https://agent-observatory-hub.peachy-pony-3346.chatgpt.site>
 
-`script/observatory.py` を Home Manager / Linux pixi の両方で `~/.local/bin/observatory` にリンクします。Python 3.11 以上を使い、追加パッケージは不要です。通常の setup/update はリンクを作るだけで、MCP 登録やログイン、データ送信は行いません。
+Claude Code / Codex はローカルの **stdio MCP中継**から接続します。SitesのOAuthを外部CLIで直接実行しません。Node.js 22以上とPython 3.11以上が必要です（既存のnix / pixi環境に含まれます）。
 
 ```bash
-# この変更を取り込んで、通常の dotfiles 更新でリンクを反映
-./script/update.sh
-# 手元にインストールされている両 CLI を登録（片方だけなら setup codex / setup claude）
-observatory setup
-observatory status
-# Codex: 接続手順を表示（直接のMCP OAuthログインは行わない）
-observatory login codex
-codex
-# Codex内で /plugins → Personal → Agent Observatory をインストール・接続
-# Claude Code: 現在このSitesエンドポイントへの直接接続は利用できません
-```
-
-リンク反映前でも `python3 ~/.dotfiles/script/observatory.py setup` で実行できます。CLI が未導入なら通常の setup/update を先に実行してください。
-
-- Codex: Sitesが生成する **Agent Observatory プラグイン**を使います。`codex` 内で `/plugins` → Personal からインストール・接続してください。`observatory setup codex` は報告用マーカーだけを作り、`config.toml` に直接MCP接続を追加しません。プラグインのインストールやログインの成功は自動判定しません。
-- Claude Code: Sitesへの直接OAuth接続でHTML応答のJSON parse errorが発生しているため、自動登録しません。`setup claude` は未対応のエラーを返し、`setup all` はClaude Codeをスキップします。旧設定は `claude mcp remove --scope user observatory` で削除してください。Claude Codeから報告するには、別途対応する認証経路の実装・検証が必要です。
-- `observatory status` はローカル設定の確認です。ログイン成功やネットワーク疎通は保証しません。各 CLI を再起動し、「Observatory の list_tasks を呼んで」と依頼して接続を確認してください。認証・CLI バージョン・サイトの利用制限によって接続できない場合があります。Claude Code からの実ログインは未検証です。
-- OAuth は各 CLI が管理します。トークン、Cookie、service bypass token、認証済みヘッダーを dotfiles に追加しないでください。サイトは所有者限定のまま使い、接続のために公開しないでください。
-
-#### 旧設定からの移行: Dynamic client registration not supported
-
-初期版の `observatory setup` は直接の HTTP MCP 定義を追加していました。`observatory login codex` で DCR エラーになる場合はその定義を削除し、Sites が生成するプラグインから接続します。
-
-```bash
+# 旧HTTP設定がある場合だけ削除（ほかのMCP設定は残す）
+claude mcp remove --scope user observatory
 codex mcp remove observatory
-codex
-# Codex内で /plugins → Personal → Agent Observatory → Install / Connect
+
+# 所有者のアカウントでブラウザにサインインし、自分の端末の接続を承認
+python3 script/observatory.py connect "My laptop"
+
+# インストールされているCLIを設定。片方だけなら setup claude / setup codex
+python3 script/observatory.py setup
 ```
 
-`observatory login codex` は現在、この手順を表示するだけで DCR を実行しません。既存の直接接続も自動削除しません。更新後に `observatory setup codex` を実行して報告を有効化し、新しいセッションで `list_tasks` を呼んで接続を確認します。同じ ChatGPT アカウントでログインしてください。プラグインが表示されない場合は接続済みとは扱わず、CLIのバージョン・アカウント・プラグインの利用可否を確認します。
+通常の `./script/update.sh` で `~/.local/bin/observatory` にリンク済みなら、上記は `observatory connect` / `observatory setup` でも実行できます。setup/update自体ではMCP登録・接続・データ送信を行いません。
 
-Claude Code の直接接続では認証処理がHTMLをJSONとして解釈して失敗する事象が確認されています。現在のスクリプトでは認証を完了できません。トークンのハードコードやサイトの公開で回避しないでください。
+1. `connect` がローカルで一時的な鍵を生成し、127.0.0.1のランダムなポートで承認結果を待ちます。
+2. 開いたブラウザの `/connect` で、サイト所有者としてサインインします。自分が端末で開始したリクエストであることを確認して「この端末を承認して接続」を押します。
+3. サーバーが端末専用の30日間有効なキーを発行。Sitesのサービスアクセス情報と一緒に暗号化し、接続元のプロセスだけが復号します。ブラウザには平文のキーを返しません。
+4. CLIは `${XDG_CONFIG_HOME:-~/.config}/observatory/credentials.json` に mode 600 で保存します。Git・MCP設定・コマンド引数・標準出力にはキーを含めません。
+5. `setup` がClaude Codeのuser scopeとCodexのユーザー設定にローカル中継を登録します。新しいセッションで「Observatoryのlist_tasksを呼んで」と依頼し、接続を確認します。
 
-#### 作業の報告ルール
+ブラウザはCLIを実行した同じ端末で開いてください。自動で開けない場合は端末に表示されたURLをその端末のブラウザに貼り付けます。接続待ちは10分です。サイト所有者のサインイン／承認と、各CLIでのMCP利用許可は手元で行う必要があります。
 
-`observatory setup` は `${XDG_CONFIG_HOME:-~/.config}/observatory/enabled` を作成します。共通指示はこのファイルと接続済み MCP を確認してから、作業を登録・更新します。プラグインを接続した後、`observatory setup codex` で報告を有効化できます。マーカーの存在は実際の接続成功を保証しません。
+Codexの登録内容（パスは例。`setup`が実際の絶対パスを設定）:
 
-| タイミング | MCP 操作 |
+```toml
+[mcp_servers.observatory]
+command = "node"
+args = ["/path/to/dotfiles/script/observatory-mcp.mjs", "serve"]
+```
+
+Claude Codeでは同じ中継を `claude mcp add --transport stdio --scope user observatory -- node /path/to/dotfiles/script/observatory-mcp.mjs serve` で登録します。同名のHTTP設定や別接続は勝手に上書きしません。移行時は上記のremoveを実行してください。Codex設定がsymlink／追記できないinline tableの場合は既存設定の元ファイルに手動統合します。
+
+```bash
+observatory status       # ローカル設定だけを確認。認証成功はlist_tasksで確認
+observatory disable      # 共通指示による報告だけを停止
+observatory setup        # 報告を再び有効化
+observatory disconnect   # サーバーの端末キーを失効させ、ローカル認証情報を削除
+```
+
+紛失した端末は <https://agent-observatory-hub.peachy-pony-3346.chatgpt.site/connect> の接続済み端末一覧から取り消せます。30日の期限切れやサービスアクセス情報の変更で接続できなくなった場合は `connect` をやり直します。旧 `observatory login codex` / `login claude` も、現在はブラウザ承認への別名です。ChatGPT / dotsは既存のAgent Observatoryプラグインを引き続き利用します。
+
+#### タスクの報告
+
+`setup` は `${XDG_CONFIG_HOME:-~/.config}/observatory/enabled` を作成します。共通指示はこのマーカーと接続済みMCPを確認し、次を報告します。
+
+| タイミング | MCP操作 |
 | --- | --- |
-| 新しい作業 | `register_task(title, agent, parent?, detail?)` → 戻り値の ID を保持 |
+| 新しい作業 | `register_task(title, agent, parent?, detail?)` のIDを保持 |
 | 作業開始 | `update_task(id, "running")` |
 | 依存関係・判断待ち | `update_task(id, "blocked")` |
 | 作業と必要な確認が完了 | `update_task(id, "done")` |
-| 子エージェントへ委譲 | 親が `parent=<親ID>` で子タスクを登録し、子にその ID を渡す |
+| 子エージェントへ委譲 | 親が `parent=<親ID>` で登録し、返された子IDを渡す |
 
-例: 「Observatory に『認証APIの実装』を登録してから作業し、子タスクも親IDで紐づけて。進捗と完了を更新して」。`queued` は登録直後・開始前の状態です。agent 名に `Codex · backend` などの役割を含めると見分けやすくなります。
+これは協調的な報告方式です。CLIプロセスや全tool call・クラッシュの自動監視、遠隔コマンド実行・停止は行いません。送信するのは機密性を確認した短いタスク情報だけで、会話全文・コード・diff・秘密情報・絶対パスは含めません。認証障害は一度報告し、本来の作業は継続します。既存のherdr / pre-commit hooksは変更しません。
 
-報告はエージェントが指示に従って MCP を呼ぶ方式です。CLI の全プロセス・全 tool call・クラッシュを自動検出する hooks や、実行停止・コマンド配信は実装していません。既存の herdr / pre-commit hooks は変更しません。切断・認証切れ・中断時は表示が古いまま残る可能性があります。
-
-送信対象は機密性を確認した短いタスク情報のみです。プロンプト全文、会話ログ、コード、diff、環境変数、絶対パス、秘密情報は送信しません。ユーザーや各リポジトリの制約を優先します。MCP が使えない場合は報告の失敗を一度伝えて本来の作業を継続します。
-
-```bash
-# 共通指示による報告を停止。再開は observatory setup
-observatory disable
-# MCP 自体も外す場合（CLI が管理する認証情報の整理は各公式手順に従う）
-codex mcp remove observatory
-claude mcp remove --scope user observatory
-```
-
-`disable` は報告用マーカーだけを削除し、接続設定・ログイン情報は残します。指示を再読込するためエージェントの新しいセッションで反映してください。
-
-公式仕様: [Codex MCP](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)、[Codex config reference](https://learn.chatgpt.com/docs/config-file/config-reference)、[Claude Code MCP](https://code.claude.com/docs/en/mcp)。
+サーバーは所有者限定のSitesアクセスを維持し、中継専用キーでも認証します。キーのハッシュと所有者を保存し、期限切れ・取り消し済みキーを拒否します。タスク操作はキー所有者に限定します。ダッシュボードは表示専用です。HTTP MCP URLへの直接OAuth、OIDCメタデータの上書き、DCR、サイトの一般公開はこの接続に不要です。
 
 ### Codex pet
 
@@ -319,6 +312,7 @@ pre-commit run --all-files
 bash script/tests/test-bootstrap.sh
 bash script/tests/test-agent-hooks.sh
 python3 script/tests/test-observatory.py
+node --test script/tests/test-observatory-bridge.mjs
 ```
 
 - `nixfmt` (nix ファイル)、`shellcheck` (shell script)、標準 hooks (行末空白・EOF 改行など)
