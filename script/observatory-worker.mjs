@@ -130,7 +130,8 @@ export async function workerRequest(body,credential,fetcher=fetch){
 }
 function git(repo,args){return execFileSync('git',['-C',repo,...args],{encoding:'utf8',timeout:30000,stdio:['ignore','pipe','ignore']}).trim()}
 export function agentCommand(agent){
- if(agent==='codex')return ['codex',['-a','never','exec','--sandbox','workspace-write','--json','--ignore-user-config','-c','mcp_servers.observatory.enabled=false','-']];
+ // --ignore-user-config already drops user MCP servers; overriding one without its transport makes codex refuse to start.
+ if(agent==='codex')return ['codex',['-a','never','exec','--sandbox','workspace-write','--json','--ignore-user-config','-']];
  // MCP disabled so a remotely dispatched task cannot recursively submit work. No Bash tool or bypass permissions.
  if(agent==='claude')return ['claude',['-p','--restricted','--permission-mode','acceptEdits','--max-budget-usd','5','--tools','Read,Edit,Write,Glob,Grep','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--output-format','json']];
  throw Error('Unsupported agent');
