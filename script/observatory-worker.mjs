@@ -131,7 +131,8 @@ export async function workerRequest(body,credential,fetcher=fetch){
 function git(repo,args){return execFileSync('git',['-C',repo,...args],{encoding:'utf8',timeout:30000,stdio:['ignore','pipe','ignore']}).trim()}
 export function agentCommand(agent){
  // --ignore-user-config already drops user MCP servers; overriding one without its transport makes codex refuse to start.
- if(agent==='codex')return ['codex',['-a','never','exec','--sandbox','workspace-write','--json','--ignore-user-config','-']];
+ // Jobs may update the user's environment (e.g. ~/.dotfiles, network installs), which workspace-write cannot reach.
+ if(agent==='codex')return ['codex',['-a','never','exec','--sandbox','danger-full-access','--json','--ignore-user-config','-']];
  // Only Reason Network is loaded: the agent can talk to teammates, but without Observatory it cannot recursively submit work.
  // Bash must be named in --tools to survive --restricted, and pre-allowed because -p denies anything that would prompt.
  if(agent==='claude')return ['claude',['-p','--restricted','--permission-mode','acceptEdits','--max-budget-usd','5','--tools','Bash,Read,Edit,Write,Glob,Grep','--strict-mcp-config','--mcp-config',JSON.stringify({mcpServers:{'reason-network':{type:'stdio',command:'reason-network',args:['mcp']}}}),'--allowedTools','Bash,mcp__reason-network__list_team,mcp__reason-network__send_message,mcp__reason-network__check_inbox','--output-format','json']];

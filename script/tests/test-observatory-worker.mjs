@@ -17,7 +17,7 @@ test('worker transport pins origin and endpoint and forbids redirects',async()=>
 test('telemetry and local policy do not invent GPU memory or allow unknown executors',()=>{
  const specs=collectSpecs((cmd)=>{if(cmd==='nvidia-smi')return 'Fixture GPU, 8192\n';throw Error()});assert.equal(specs.gpus[0].vramBytes,8192*1048576);assert.ok(specs.cores>0);assert.ok(specs.memoryBytes>0);
  assert.throws(()=>validateConfig({deviceId:randomUUID(),agents:['shell'],repos:{}}));assert.throws(()=>validateConfig({deviceId:randomUUID(),agents:[],repos:{demo:'relative'}}));
- assert.equal(childEnvironment({PATH:'/bin',SOME_SECRET:'hidden'}).SOME_SECRET,undefined);assert.ok(agentCommand('codex')[1].includes('workspace-write'));assert.ok(agentCommand('codex')[1].includes('--ignore-user-config'));
+ assert.equal(childEnvironment({PATH:'/bin',SOME_SECRET:'hidden'}).SOME_SECRET,undefined);assert.ok(agentCommand('codex')[1].includes('danger-full-access'));assert.ok(agentCommand('codex')[1].includes('--ignore-user-config'));
  // A partial mcp_servers override without the user config is an invalid server entry and stops codex before it runs.
  assert.equal(agentCommand('codex')[1].some(arg=>arg.startsWith('mcp_servers.')),false);assert.ok(agentCommand('claude')[1].includes('--restricted'));
  // Jobs keep Reason Network for replies between agents, but never Observatory, which could submit further jobs.
