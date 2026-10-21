@@ -33,6 +33,10 @@ test('real worktree executes a fixture CLI, leaves changes and reports no transc
  const request=async data=>{reports.push(data);return {continue:true}};
  const execute=(_cmd,_args,options)=>spawn(process.execPath,['--input-type=module','-e',"import {writeFileSync} from 'node:fs';process.stdin.resume();process.stdin.on('end',()=>{writeFileSync('fixture.txt','edited');console.log('PRIVATE TRANSCRIPT')})"],options);
  const result=await runJob(job(),config,request,{spawnAgent:execute});assert.equal(result.status,'done');assert.equal(await readFile(join(result.worktree,'fixture.txt'),'utf8'),'edited');assert.equal(JSON.stringify(reports).includes('PRIVATE TRANSCRIPT'),false);assert.equal(reports.at(-1).action,'complete');
+ // The final answer goes back to the requester only; Observatory still sees no transcript.
+ const answer=events=>(_cmd,_args,options)=>spawn(process.execPath,['-e',`process.stdin.resume();process.stdin.on('end',()=>process.stdout.write(${JSON.stringify(events)}))`],options);
+ const codex=await runJob(job(),config,request,{spawnAgent:answer('{"type":"item.completed","item":{"type":"agent_message","text":"first"}}\n{"type":"item.completed","item":{"type":"agent_message","text":"PRIVATE ANSWER"}}\n')});assert.equal(codex.answer,'PRIVATE ANSWER');
+ const claude=await runJob(job(),config,request,{spawnAgent:answer('{"type":"result","is_error":false,"result":"PRIVATE ANSWER"}')});assert.equal(claude.answer,'PRIVATE ANSWER');assert.equal(JSON.stringify(reports).includes('PRIVATE ANSWER'),false);
  let launched=false;await assert.rejects(runJob({...job(),repo:'forbidden'},config,request,{spawnAgent:()=>{launched=true}}),/policy/);assert.equal(launched,false);
  // Cancellation and loss of connectivity both kill the fixture process group.
  const hang=(_cmd,_args,options)=>spawn(process.execPath,['-e','process.stdin.resume();setInterval(()=>{},1000)'],options);
@@ -125,6 +129,9 @@ test('results reach the requesting session as the worker, with changed text file
  const job={id:randomUUID(),prompt:'Observatory-Reply-To: kohei/api-claude'};
  assert.equal(await replyResult(job,{status:'done',result:'Agent exited with code 0.',workspace:true,worktree:dir},{person:'kohei',machine:'mbp'},exec),true);
  assert.deepEqual(sent.at(-1),['send','kohei/api-claude','--from','cli:observatory-worker','--file',join(dir,'notes.md'),'--','Observatory job '+job.id+' done: Agent exited with code 0.']);
+ await replyResult(job,{status:'done',result:'Agent exited with code 0.',answer:'Hello from ks-mac'},{person:'kohei',machine:'mbp'},exec);
+ assert.equal(sent.at(-1).at(-1),'Observatory job '+job.id+' done: Agent exited with code 0.\n\nHello from ks-mac');
+ await replyResult(job,{status:'done',result:'x',answer:'y'.repeat(20000)},{person:'kohei',machine:'mbp'},exec);assert.ok(sent.at(-1).at(-1).length<9000);
  assert.equal(await replyResult({...job,prompt:'no reply'},{status:'done',result:'x'},{person:'kohei',machine:'mbp'},()=>{throw Error('must not send')}),false);
  assert.equal(await replyResult(job,{status:'done',result:'x'},null,()=>{throw Error('must not send')}),false);
  }finally{await restore()}

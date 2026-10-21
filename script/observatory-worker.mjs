@@ -107,7 +107,7 @@ export async function changedFiles(dir,exec=execText){
 }
 export async function replyResult(job,outcome,identity,exec=execText){
  const {replyTo}=jobDirectives(job.prompt);if(!replyTo||!identity)return false;
- const files=outcome.workspace?await changedFiles(outcome.worktree,exec).catch(()=>[]):[],message='Observatory job '+job.id+' '+outcome.status+': '+outcome.result;
+ const files=outcome.workspace?await changedFiles(outcome.worktree,exec).catch(()=>[]):[],answer=outcome.answer?.trim()||'',message='Observatory job '+job.id+' '+outcome.status+': '+outcome.result+(answer?'\n\n'+(answer.length>8000?answer.slice(0,8000)+'\n[truncated]':answer):'');
  await collectFiles(identity,exec).catch(()=>{});
  const send=(attached,text)=>exec('reason-network',['send',replyTo,'--from','cli:'+REASON_SESSION,...attached.flatMap(f=>['--file',f]),'--',text],60000);
  try{await send(files,message)}catch(e){if(!files.length)throw e;await send([],message+' Changed files could not be attached; they stay in the workspace.')}
@@ -157,17 +157,19 @@ export async function runJob(job,config,request,{spawnAgent=spawn,gitRun=git,exe
  const branch=repo?'observatory/'+job.id:null,worktree=workspace||join(stateDir(),'worktrees',job.id);
  if(repo){await mkdir(dirname(worktree),{recursive:true,mode:0o700});gitRun(repo,['worktree','add','-b',branch,worktree,base]);if(staged)await placeFiles(staged,join(worktree,'observatory-files'))}
  const [command,args]=agentCommand(job.agent);const child=spawnAgent(command,args,{cwd:worktree,env:childEnvironment(),detached:true,stdio:['pipe','pipe','pipe']});
- let exited=false,code=null,failure='',bytes=0,outputLine='',lastLease=Date.now(),inFlight=false,finishing=false;
+ let exited=false,code=null,failure='',bytes=0,outputLine='',answer='',lastLease=Date.now(),inFlight=false,finishing=false;
  const done=new Promise(resolveDone=>{child.once('error',()=>{failure='Agent CLI could not start';exited=true;resolveDone()});child.once('exit',value=>{code=value;exited=true;resolveDone()})});
  const kill=()=>{try{process.kill(-child.pid,'SIGKILL')}catch{try{child.kill('SIGKILL')}catch{}}};
- // Drain bounded output without storing or uploading agent transcripts.
+ // Drain bounded output without storing or uploading agent transcripts; keep only the final answer for the requester.
+ const scan=line=>{try{const event=JSON.parse(line);if(event.type==='turn.failed'||event.is_error===true)failure='Agent reported execution failure';if(event.type==='item.completed'&&event.item?.type==='agent_message'&&typeof event.item.text==='string')answer=event.item.text;if(event.type==='result'&&typeof event.result==='string')answer=event.result}catch{}};
+ const drained=new Promise(r=>child.stdout.once('end',r));
  for(const stream of [child.stdout,child.stderr])stream.on('data',chunk=>{bytes+=chunk.length;if(bytes>8*1024*1024){failure='Agent output limit exceeded';kill()}});
- child.stdout.on('data',chunk=>{outputLine+=chunk.toString();const lines=outputLine.split('\n');outputLine=lines.pop();for(const line of lines){try{const event=JSON.parse(line);if(event.type==='turn.failed'||event.is_error===true)failure='Agent reported execution failure'}catch{}}});
+ child.stdout.on('data',chunk=>{outputLine+=chunk.toString();const lines=outputLine.split('\n');outputLine=lines.pop();lines.forEach(scan)});
  child.stdin.on('error',()=>{});child.stdin.end(job.prompt+'\n\nWork only in this '+(workspace?'directory; files sent with the request are here':'worktree'+(staged?'; files sent with the request are in observatory-files/':''))+'. Do not push, merge, dispatch other agents, or access Observatory credentials. Leave edits for human review.\n');
  const renew=async()=>{if(inFlight||finishing)return;inFlight=true;try{const r=await request({action:'heartbeat',jobId:job.id,lease:job.lease});if(!r.continue){failure='Job cancelled or execution lease lost';kill()}else lastLease=Date.now()}catch{}finally{inFlight=false}};
  const heartbeat=setInterval(renew,heartbeatMs),watchdog=setInterval(()=>{if(stopRequested()||Date.now()-lastLease>leaseGraceMs){failure=stopRequested()?'Worker stopped':'Heartbeat unavailable; execution stopped';kill()}},watchdogMs);
  const timer=setTimeout(()=>{failure='Job timeout';kill()},job.timeoutSeconds*1000);
- try{await done;finishing=true;while(inFlight)await new Promise(r=>setTimeout(r,50));if(!exited)kill();const status=!failure&&code===0?'done':'failed';const result=note+(failure||'Agent exited with code '+code)+'. '+(workspace?'Workspace: ~/work/'+job.id:'Worktree branch: '+branch)+'. Review edits locally; no automatic push or merge.';await request({action:'complete',jobId:job.id,lease:job.lease,status,result});return {status,branch,worktree,workspace:Boolean(workspace),result}}finally{clearInterval(heartbeat);clearInterval(watchdog);clearTimeout(timer);kill()}
+ try{await done;finishing=true;await Promise.race([drained,new Promise(r=>setTimeout(r,2000))]);scan(outputLine);while(inFlight)await new Promise(r=>setTimeout(r,50));if(!exited)kill();const status=!failure&&code===0?'done':'failed';const result=note+(failure||'Agent exited with code '+code)+'. '+(workspace?'Workspace: ~/work/'+job.id:'Worktree branch: '+branch)+'. Review edits locally; no automatic push or merge.';await request({action:'complete',jobId:job.id,lease:job.lease,status,result});return {status,branch,worktree,workspace:Boolean(workspace),result,answer}}finally{clearInterval(heartbeat);clearInterval(watchdog);clearTimeout(timer);kill()}
 }
 export async function runWorker({once=false}={}){
  const release=await acquireLock(join(stateDir(),'worker.lock'));let stop=false,request;const onStop=()=>{stop=true};process.on('SIGINT',onStop);process.on('SIGTERM',onStop);
