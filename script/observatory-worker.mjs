@@ -132,8 +132,8 @@ function git(repo,args){return execFileSync('git',['-C',repo,...args],{encoding:
 export function agentCommand(agent){
  // --ignore-user-config already drops user MCP servers; overriding one without its transport makes codex refuse to start.
  if(agent==='codex')return ['codex',['-a','never','exec','--sandbox','workspace-write','--json','--ignore-user-config','-']];
- // MCP disabled so a remotely dispatched task cannot recursively submit work. No Bash tool or bypass permissions.
- if(agent==='claude')return ['claude',['-p','--restricted','--permission-mode','acceptEdits','--max-budget-usd','5','--tools','Read,Edit,Write,Glob,Grep','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--output-format','json']];
+ // Only Reason Network is loaded: the agent can talk to teammates, but without Observatory it cannot recursively submit work. No Bash tool or bypass permissions.
+ if(agent==='claude')return ['claude',['-p','--restricted','--permission-mode','acceptEdits','--max-budget-usd','5','--tools','Read,Edit,Write,Glob,Grep','--strict-mcp-config','--mcp-config',JSON.stringify({mcpServers:{'reason-network':{type:'stdio',command:'reason-network',args:['mcp']}}}),'--allowedTools','mcp__reason-network__list_team,mcp__reason-network__send_message,mcp__reason-network__check_inbox','--output-format','json']];
  throw Error('Unsupported agent');
 }
 export function childEnvironment(env=process.env){const clean={};for(const key of ['HOME','USER','LOGNAME','PATH','SHELL','LANG','LC_ALL','TERM','TMPDIR','XDG_CONFIG_HOME','XDG_DATA_HOME','XDG_STATE_HOME','CODEX_HOME','CLAUDE_CONFIG_DIR','SSL_CERT_FILE','SSL_CERT_DIR','HTTPS_PROXY','HTTP_PROXY','NO_PROXY','ANTHROPIC_API_KEY','OPENAI_API_KEY','CLAUDE_CODE_OAUTH_TOKEN'])if(env[key])clean[key]=env[key];clean.OBSERVATORY_WORKER_JOB='1';return clean}

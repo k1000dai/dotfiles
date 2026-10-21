@@ -20,6 +20,8 @@ test('telemetry and local policy do not invent GPU memory or allow unknown execu
  assert.equal(childEnvironment({PATH:'/bin',SOME_SECRET:'hidden'}).SOME_SECRET,undefined);assert.ok(agentCommand('codex')[1].includes('workspace-write'));assert.ok(agentCommand('codex')[1].includes('--ignore-user-config'));
  // A partial mcp_servers override without the user config is an invalid server entry and stops codex before it runs.
  assert.equal(agentCommand('codex')[1].some(arg=>arg.startsWith('mcp_servers.')),false);assert.ok(agentCommand('claude')[1].includes('--restricted'));
+ // Jobs keep Reason Network for replies between agents, but never Observatory, which could submit further jobs.
+ const claude=agentCommand('claude')[1],servers=JSON.parse(claude[claude.indexOf('--mcp-config')+1]).mcpServers;assert.ok(claude.includes('--strict-mcp-config'));assert.deepEqual(Object.keys(servers),['reason-network']);assert.match(claude[claude.indexOf('--allowedTools')+1],/mcp__reason-network__send_message/);
 });
 test('config survives init, duplicate process lock fails, service paths are escaped',async()=>{
  const root=await mkdtemp(join(tmpdir(),'obs-worker-'));const old=process.env.XDG_CONFIG_HOME;process.env.XDG_CONFIG_HOME=root;
