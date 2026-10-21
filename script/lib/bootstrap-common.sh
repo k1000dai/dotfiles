@@ -584,12 +584,17 @@ sync_observatory() {
 }
 
 sync_observatory_worker() {
+  # Defaults apply only to unset worker choices; set either variable empty to opt out.
+  local agents="${OBSERVATORY_WORKER_AGENTS-codex claude}"
+  local owners="${OBSERVATORY_WORKER_OWNERS-k1000dai airoa-org}"
+
   if [[ "${SKIP_OBSERVATORY:-0}" == "1" || "${SKIP_OBSERVATORY_WORKER:-0}" == "1" ]]; then
     return 0
   fi
   if command -v node >/dev/null 2>&1 && node "${REPO_ROOT}/script/observatory-mcp.mjs" check >/dev/null 2>&1; then
-    log "Syncing Observatory resident worker (telemetry only until repositories/agents are allowed)"
+    log "Syncing Observatory resident worker (default agents: ${agents:-none}; GitHub owners: ${owners:-none})"
     run node "${REPO_ROOT}/script/observatory-worker.mjs" sync \
+      "--default-agents=${agents// /,}" "--default-owners=${owners// /,}" \
       || log "Worker service unavailable; run observatory worker install or use worker run with your supervisor"
   fi
 }
@@ -801,4 +806,3 @@ update_with_nix() {
   nix_cmd flake update nixpkgs --flake "${REPO_ROOT}"
   setup_with_nix
 }
-

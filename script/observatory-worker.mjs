@@ -3,18 +3,42 @@
 import {hostname,platform,arch,cpus,totalmem,loadavg,homedir} from 'node:os';
 import {readFile,mkdir,writeFile,open,unlink,realpath} from 'node:fs/promises';
 import {join,dirname,resolve} from 'node:path';
-import {spawn,execFileSync} from 'node:child_process';
+import {spawn,execFile,execFileSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
+import {promisify} from 'node:util';
 import {pathToFileURL,fileURLToPath} from 'node:url';
 import {ORIGIN,loadCredentials} from './observatory-mcp.mjs';
 export const configDir=()=>join(process.env.XDG_CONFIG_HOME||join(homedir(),'.config'),'observatory');
 export const stateDir=()=>join(process.env.XDG_STATE_HOME||join(homedir(),'.local','state'),'observatory');
 const configPath=()=>join(configDir(),'worker.json');
 const safeId=id=>typeof id==='string'&&/^[a-f0-9-]{36}$/.test(id);
+const ownerPattern=/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/,repoPattern=/^([A-Za-z0-9][A-Za-z0-9-]{0,38})\/([A-Za-z0-9_.-]{1,100})$/;
+const ownerAllowed=(config,owner)=>(config.owners||[]).some(o=>o.toLowerCase()===owner.toLowerCase());
 export function validateConfig(c){
  if(!c||!safeId(c.deviceId)||typeof c.repos!=='object'||!c.repos||Array.isArray(c.repos)||Object.entries(c.repos).some(([alias,path])=>!/^[-a-zA-Z0-9_]{1,80}$/.test(alias)||typeof path!=='string'||!path.startsWith('/'))||Object.keys(c.repos).length>30)throw Error('Invalid worker configuration');
  if(!Array.isArray(c.agents)||c.agents.some(a=>!['codex','claude'].includes(a)))throw Error('Invalid agents');
+ if(c.owners!==undefined&&(!Array.isArray(c.owners)||c.owners.length>20||c.owners.some(o=>typeof o!=='string'||!ownerPattern.test(o))))throw Error('Invalid owners');
  return c;
+}
+const execAsync=promisify(execFile);
+// GIT_TERMINAL_PROMPT=0 keeps an unattended clone/fetch from waiting on credentials.
+export const execText=(cmd,args,timeout)=>execAsync(cmd,args,{encoding:'utf8',timeout,maxBuffer:4*1024*1024,env:{...process.env,GIT_TERMINAL_PROMPT:'0'}}).then(r=>r.stdout.trim());
+// GitHub repositories under allowed owners: ghq clones plus gh-visible ones that can be cloned on demand.
+export async function availableRepos(config,exec=execText){
+ const found=new Map(),add=name=>{const m=repoPattern.exec(name);if(m&&!/^\.+$/.test(m[2])&&ownerAllowed(config,m[1])&&!found.has(name.toLowerCase()))found.set(name.toLowerCase(),name)};
+ if(config.owners?.length){
+  try{for(const line of (await exec('ghq',['list'],30000)).split('\n')){const [host,...rest]=line.split('/');if(host==='github.com')add(rest.join('/'))}}catch{}
+  for(const owner of config.owners)try{(await exec('gh',['repo','list',owner,'--limit','1000','--no-archived','--json','nameWithOwner','--jq','.[].nameWithOwner'],30000)).split('\n').forEach(add)}catch{}
+ }
+ return [...Object.keys(config.repos),...[...found.values()].sort()];
+}
+export async function resolveRepo(config,name,exec=execText){
+ if(Object.hasOwn(config.repos,name))return {path:config.repos[name],ghq:false};
+ const m=repoPattern.exec(name);if(!m||/^\.+$/.test(m[2])||!ownerAllowed(config,m[1]))throw Error('Job rejected by local policy');
+ const url='github.com/'+name,find=async()=>(await exec('ghq',['list','-p','-e',url],30000)).split('\n')[0];
+ let path=await find();if(!path){await exec('ghq',['get',url],600000);path=await find()}
+ if(!path)throw Error('Repository could not be cloned');
+ return {path,ghq:true};
 }
 async function saveConfig(c){await mkdir(configDir(),{recursive:true,mode:0o700});await writeFile(configPath(),JSON.stringify(c,null,2)+'\n',{mode:0o600})}
 async function getConfig(){try{return validateConfig(JSON.parse(await readFile(configPath(),'utf8')))}catch{throw Error('Run observatory worker init first; inspect worker.json locally if it exists.')}}
@@ -40,10 +64,17 @@ export function agentCommand(agent){
 }
 export function childEnvironment(env=process.env){const clean={};for(const key of ['HOME','USER','LOGNAME','PATH','SHELL','LANG','LC_ALL','TERM','TMPDIR','XDG_CONFIG_HOME','XDG_DATA_HOME','XDG_STATE_HOME','CODEX_HOME','CLAUDE_CONFIG_DIR','SSL_CERT_FILE','SSL_CERT_DIR','HTTPS_PROXY','HTTP_PROXY','NO_PROXY','ANTHROPIC_API_KEY','OPENAI_API_KEY','CLAUDE_CODE_OAUTH_TOKEN'])if(env[key])clean[key]=env[key];clean.OBSERVATORY_WORKER_JOB='1';return clean}
 export async function acquireLock(path){await mkdir(dirname(path),{recursive:true,mode:0o700});try{const h=await open(path,'wx',0o600);await h.writeFile(String(process.pid));await h.close();return async()=>unlink(path).catch(()=>{})}catch(e){if(e.code!=='EEXIST')throw e;let pid;try{pid=Number(await readFile(path,'utf8'));if(!Number.isInteger(pid)||pid<1)throw Error();process.kill(pid,0)}catch(e){if(e.code==='ESRCH'){await unlink(path);return acquireLock(path)}throw Error('Worker lock exists; inspect it before removing.')}throw Error('Worker is already running')}}
-export async function runJob(job,config,request,{spawnAgent=spawn,gitRun=git,stopRequested=()=>false,heartbeatMs=20000,watchdogMs=1000,leaseGraceMs=60000}={}){
- if(!safeId(job.id)||!config.agents.includes(job.agent)||!Object.hasOwn(config.repos,job.repo)||!safeId(job.lease)||typeof job.prompt!=='string'||job.prompt.length>16000||!Number.isInteger(job.timeoutSeconds)||job.timeoutSeconds<30||job.timeoutSeconds>3600)throw Error('Job rejected by local policy');
- const repo=await realpath(config.repos[job.repo]);if(gitRun(repo,['rev-parse','--show-toplevel'])!==repo)throw Error('Allowed path must be the repository root');
- const worktree=join(stateDir(),'worktrees',job.id),branch='observatory/'+job.id;await mkdir(dirname(worktree),{recursive:true,mode:0o700});gitRun(repo,['worktree','add','-b',branch,worktree,'HEAD']);
+export async function runJob(job,config,request,{spawnAgent=spawn,gitRun=git,exec=execText,stopRequested=()=>false,heartbeatMs=20000,watchdogMs=1000,leaseGraceMs=60000}={}){
+ if(!safeId(job.id)||!config.agents.includes(job.agent)||typeof job.repo!=='string'||!safeId(job.lease)||typeof job.prompt!=='string'||job.prompt.length>16000||!Number.isInteger(job.timeoutSeconds)||job.timeoutSeconds<30||job.timeoutSeconds>3600)throw Error('Job rejected by local policy');
+ // Clone and fetch can outlast a heartbeat interval, so keep the execution lease alive while preparing.
+ let cancelled=false,repo,base='HEAD';const keep=setInterval(()=>request({action:'heartbeat',jobId:job.id,lease:job.lease}).then(r=>{if(!r.continue)cancelled=true}).catch(()=>{}),heartbeatMs);
+ try{
+  const source=await resolveRepo(config,job.repo,exec);repo=await realpath(source.path);if(gitRun(repo,['rev-parse','--show-toplevel'])!==repo)throw Error('Allowed path must be the repository root');
+  // ghq clones may be stale or on another branch; start from the fetched remote default branch.
+  if(source.ghq){await exec('git',['-C',repo,'fetch','--quiet','origin'],300000);const head=()=>exec('git',['-C',repo,'rev-parse','--verify','--quiet','origin/HEAD^{commit}'],30000);base=await head().catch(async()=>{await exec('git',['-C',repo,'remote','set-head','origin','--auto'],60000);return head()})}
+ }finally{clearInterval(keep)}
+ if(cancelled||stopRequested())throw Error('Job cancelled before start');
+ const worktree=join(stateDir(),'worktrees',job.id),branch='observatory/'+job.id;await mkdir(dirname(worktree),{recursive:true,mode:0o700});gitRun(repo,['worktree','add','-b',branch,worktree,base]);
  const [command,args]=agentCommand(job.agent);const child=spawnAgent(command,args,{cwd:worktree,env:childEnvironment(),detached:true,stdio:['pipe','pipe','pipe']});
  let exited=false,code=null,failure='',bytes=0,outputLine='',lastLease=Date.now(),inFlight=false,finishing=false;
  const done=new Promise(resolveDone=>{child.once('error',()=>{failure='Agent CLI could not start';exited=true;resolveDone()});child.once('exit',value=>{code=value;exited=true;resolveDone()})});
@@ -60,8 +91,8 @@ export async function runJob(job,config,request,{spawnAgent=spawn,gitRun=git,sto
 export async function runWorker({once=false}={}){
  const release=await acquireLock(join(stateDir(),'worker.lock'));let stop=false,request;const onStop=()=>{stop=true};process.on('SIGINT',onStop);process.on('SIGTERM',onStop);
  try{const config=await getConfig(),session=randomUUID();request=async body=>workerRequest({...body,deviceId:config.deviceId,session},await loadCredentials());
- await request({action:'register',hostname:hostname().slice(0,120),specs:collectSpecs(),repos:Object.keys(config.repos),agents:config.agents});console.error('Worker registered; repositories: '+Object.keys(config.repos).length);
- do{try{await request({action:'heartbeat'});if(config.agents.length&&Object.keys(config.repos).length){const {job}=await request({action:'claim'});if(job){try{await runJob(job,config,request,{stopRequested:()=>stop})}catch{console.error('Job failed; inspect local worktree and connection.');await request({action:'complete',jobId:job.id,lease:job.lease,status:'failed',result:'Local worker rejected the job or execution failed. Inspect local worker logs.'}).catch(()=>{})}}}}catch{console.error('Worker communication failed; retrying. Credentials are hidden.')}if(once||stop)break;for(let i=0;i<20&&!stop;i++)await new Promise(r=>setTimeout(r,1000))}while(!stop);
+ const repos=await availableRepos(config);await request({action:'register',hostname:hostname().slice(0,120),specs:collectSpecs(),repos,agents:config.agents});console.error('Worker registered; repositories: '+repos.length);
+ do{try{await request({action:'heartbeat'});if(config.agents.length&&repos.length){const {job}=await request({action:'claim'});if(job){try{await runJob(job,config,request,{stopRequested:()=>stop})}catch{console.error('Job failed; inspect local worktree and connection.');await request({action:'complete',jobId:job.id,lease:job.lease,status:'failed',result:'Local worker rejected the job or execution failed. Inspect local worker logs.'}).catch(()=>{})}}}}catch{console.error('Worker communication failed; retrying. Credentials are hidden.')}if(once||stop)break;for(let i=0;i<20&&!stop;i++)await new Promise(r=>setTimeout(r,1000))}while(!stop);
  }finally{await request?.({action:'offline'}).catch(()=>{});process.off('SIGINT',onStop);process.off('SIGTERM',onStop);await release()}
 }
 export function systemdUnit(node,script,path,environment={}){const quote=s=>'"'+s.replaceAll('\\','\\\\').replaceAll('"','\\"').replaceAll('%','%%')+'"';return '[Unit]\nDescription=Agent Observatory worker\nAfter=network-online.target\n\n[Service]\nType=simple\nExecStart='+quote(node)+' '+quote(script)+' run\nEnvironment='+quote('PATH='+path)+'\n'+Object.entries(environment).map(([k,v])=>'Environment='+quote(k+'='+v)+'\n').join('')+'Restart=on-failure\nRestartSec=15\nUMask=0077\nKillMode=control-group\nTimeoutStopSec=10\n\n[Install]\nWantedBy=default.target\n'}
@@ -70,17 +101,27 @@ export function launchdPlist(node,script,path,log,environment={}){return '<?xml 
 async function service(action){
  const script=await realpath(fileURLToPath(import.meta.url)),node=process.execPath,path=process.env.PATH||'/usr/bin:/bin';const environment={};for(const key of ['XDG_CONFIG_HOME','XDG_STATE_HOME','XDG_DATA_HOME','CODEX_HOME','CLAUDE_CONFIG_DIR'])if(process.env[key])environment[key]=process.env[key];
  if(platform()==='linux'){const unit=join(process.env.XDG_CONFIG_HOME||join(homedir(),'.config'),'systemd','user','observatory-worker.service');if(action==='install'){await mkdir(dirname(unit),{recursive:true});await writeFile(unit,systemdUnit(node,script,path,environment));execFileSync('systemctl',['--user','daemon-reload'],{stdio:'inherit'});execFileSync('systemctl',['--user','enable','observatory-worker.service'],{stdio:'inherit'});execFileSync('systemctl',['--user','restart','observatory-worker.service'],{stdio:'inherit'})}else execFileSync(action==='logs'?'journalctl':'systemctl',action==='logs'?['--user','-u','observatory-worker.service','-n','60','--no-pager']:['--user',...(action==='stop'?['disable','--now']: [action]),'observatory-worker.service'],{stdio:'inherit'});
- }else if(platform()==='darwin'){const file=join(homedir(),'Library','LaunchAgents','dev.observatory.worker.plist'),domain='gui/'+process.getuid(),label=domain+'/dev.observatory.worker';if(action==='install'){await mkdir(dirname(file),{recursive:true});await mkdir(stateDir(),{recursive:true,mode:0o700});await writeFile(file,launchdPlist(node,script,path,join(stateDir(),'worker.log'),environment),{mode:0o600});try{execFileSync('launchctl',['bootout',label],{stdio:'ignore'})}catch{}execFileSync('launchctl',['bootstrap',domain,file],{stdio:'inherit'})}else if(action==='logs'){execFileSync('tail',['-n','60',join(stateDir(),'worker.log')],{stdio:'inherit'})}else execFileSync('launchctl',action==='status'?['print',label]:action==='start'?['bootstrap',domain,file]:['bootout',label],{stdio:'inherit'});
+ }else if(platform()==='darwin'){const file=join(homedir(),'Library','LaunchAgents','dev.observatory.worker.plist'),domain='gui/'+process.getuid(),label=domain+'/dev.observatory.worker';if(action==='install'){await mkdir(dirname(file),{recursive:true});await mkdir(stateDir(),{recursive:true,mode:0o700});await writeFile(file,launchdPlist(node,script,path,join(stateDir(),'worker.log'),environment),{mode:0o600});try{execFileSync('launchctl',['bootout',label],{stdio:'ignore'})}catch{}
+  // bootout returns before the old job is fully removed; bootstrap fails with EIO until then.
+  for(let i=0;;i++){try{execFileSync('launchctl',['bootstrap',domain,file],{stdio:i<9?'ignore':'inherit'});break}catch(e){if(i>=9)throw e;await new Promise(r=>setTimeout(r,500))}}}else if(action==='logs'){execFileSync('tail',['-n','60',join(stateDir(),'worker.log')],{stdio:'inherit'})}else execFileSync('launchctl',action==='status'?['print',label]:action==='start'?['bootstrap',domain,file]:['bootout',label],{stdio:'inherit'});
  }else throw Error('Service install supports Linux systemd and macOS launchd. Use worker run in other supervisors.');
+}
+// setup/update defaults fill only unset choices, so explicit `worker agents/owners` survive later updates.
+export function applySyncDefaults(config,created,args){
+ const option=name=>{const arg=args.find(a=>a.startsWith('--default-'+name+'='));return arg===undefined?undefined:arg.slice(name.length+11).split(',').filter(Boolean)};
+ const agents=option('agents'),owners=option('owners');
+ if(created&&agents)config.agents=agents;if(config.owners===undefined&&owners)config.owners=owners;
+ return validateConfig(config);
 }
 export async function main(args=process.argv.slice(2)){
  const [action,...rest]=args;
- if(action==='init'){try{await readFile(configPath());console.error('Worker already configured; left untouched.');return}catch(e){if(e.code!=='ENOENT')throw e}const config={deviceId:randomUUID(),agents:[],repos:{}};await saveConfig(config);console.error('Created worker.json. Telemetry enabled; job execution requires worker allow and worker agents.');}
+ if(action==='init'){try{await readFile(configPath());console.error('Worker already configured; left untouched.');return}catch(e){if(e.code!=='ENOENT')throw e}const config={deviceId:randomUUID(),agents:[],repos:{}};await saveConfig(config);console.error('Created worker.json. Telemetry enabled; job execution requires worker allow or worker owners, plus worker agents.');}
  else if(action==='allow'){const [alias,path]=rest;if(!alias||!path)throw Error('Usage: worker allow ALIAS /absolute/repository');const c=await getConfig();c.repos[alias]=await realpath(resolve(path));validateConfig(c);if(git(c.repos[alias],['rev-parse','--show-toplevel'])!==c.repos[alias])throw Error('Path must be a Git repository root');await saveConfig(c);console.error('Repository allowed. Restart worker to apply.');}
  else if(action==='agents'){const c=await getConfig();c.agents=rest;validateConfig(c);await saveConfig(c);console.error('Agents updated. Restart worker to apply.');}
+ else if(action==='owners'){const c=await getConfig();c.owners=rest;validateConfig(c);await saveConfig(c);console.error('GitHub owners updated. Restart worker to apply.');}
  else if(action==='run')await runWorker({once:rest.includes('--once')});
- else if(action==='sync'){try{await readFile(join(configDir(),'worker-disabled'));console.error('Worker disabled; skipped.');return}catch(e){if(e.code!=='ENOENT')throw e}await loadCredentials();await main(['init']);await service('install')}
+ else if(action==='sync'){try{await readFile(join(configDir(),'worker-disabled'));console.error('Worker disabled; skipped.');return}catch(e){if(e.code!=='ENOENT')throw e}await loadCredentials();let created=false;try{await readFile(configPath())}catch(e){if(e.code!=='ENOENT')throw e;created=true}await main(['init']);await saveConfig(applySyncDefaults(await getConfig(),created,rest));await service('install')}
  else if(['install','start','stop','status','logs'].includes(action)){if(action==='install'||action==='start'){await getConfig();await loadCredentials();await unlink(join(configDir(),'worker-disabled')).catch(e=>{if(e.code!=='ENOENT')throw e})}if(action==='stop'){await mkdir(configDir(),{recursive:true});await writeFile(join(configDir(),'worker-disabled'),'disabled\n',{mode:0o600})}await service(action)}
- else throw Error('Usage: observatory worker init|allow ALIAS PATH|agents [codex claude]|run [--once]|install|start|stop|status|logs');
+ else throw Error('Usage: observatory worker init|allow ALIAS PATH|agents [codex claude]|owners [GITHUB_OWNER...]|run [--once]|install|start|stop|status|logs');
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){try{await main()}catch(error){console.error(error.message||'Worker failed');process.exitCode=1}}

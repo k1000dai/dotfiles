@@ -248,21 +248,40 @@ observatory disconnect   # サーバーの端末キーを失効させ、ロー�
 
 #### 常駐worker・端末情報・遠隔ジョブ
 
-接続済みの端末では `setup.sh` / `update.sh` が常駐workerを同期します。Linuxはsystemd user service、macOSはログインユーザーのlaunchd agentを使います。最初は**端末情報の報告のみ**で、ジョブは実行しません。`SKIP_OBSERVATORY_WORKER=1` で同期を省略できます。`observatory worker stop` で停止すると、その後のupdateでも停止状態を維持します。再開は `worker install` です。
+新しい端末をジョブ実行可能にする手順:
 
 ```bash
-observatory worker init                      # 永続端末IDを作成。既存設定は保持
-observatory worker allow dotfiles ~/.dotfiles # ローカルのGit rootを別名で許可
-observatory worker agents codex claude        # 使用するCLIを明示的に許可
-observatory worker install                    # 起動設定を反映して開始／再起動
+git clone git@github.com:k1000dai/dotfiles.git ~/.dotfiles
+cd ~/.dotfiles && ./script/setup.sh  # 途中でブラウザ承認（connect）→ MCP登録（setup）→ worker常駐
+gh auth login                        # gh repo list と未cloneのrepoのclone（HTTPS）に使用
+codex login                          # ジョブで使うCLIにログイン。Claude Codeは claude を一度起動してログイン
+observatory worker install           # ログイン後に再起動し、repo一覧を登録し直す
+```
+
+既存の端末では `./script/update.sh` だけで同じ状態になります。setup/updateは次を順に行います。
+
+1. 未接続か期限切れなら `observatory connect` → `observatory setup`（上記）。
+2. 接続済みなら `observatory worker sync`。`worker.json` がなければ作成し、未設定の項目だけ既定値を入れて、systemd user service（Linux）／launchd agent（macOS）を登録・再起動します。
+   - agents: `codex claude`（`worker.json` を新規作成したときだけ）
+   - owners: `k1000dai airoa-org`（`owners` が未設定のときだけ）
+
+既定値は `OBSERVATORY_WORKER_AGENTS` / `OBSERVATORY_WORKER_OWNERS`（空白区切り）で変えられ、空文字にするとその許可を入れません。`worker agents` / `worker owners` で明示した値は、空でもupdateで上書きしません。`SKIP_OBSERVATORY_WORKER=1` でworker同期全体を省略、`observatory worker stop` で停止すると以後のupdateでも停止を維持します（再開は `worker install`）。
+
+```bash
+observatory worker owners k1000dai airoa-org  # このGitHub ownerのrepoをghq経由で許可（空で全解除）
+observatory worker agents codex claude        # 使用するCLIを許可（空で実行停止、端末情報の報告のみ）
+observatory worker allow dotfiles ~/.dotfiles # ghq外のGit rootを別名で許可
+observatory worker install                    # 設定を反映して開始／再起動
 observatory worker status
 observatory worker logs
 observatory worker stop                       # 自動起動も停止
 ```
 
-設定は `${XDG_CONFIG_HOME:-~/.config}/observatory/worker.json`。端末IDは再起動・再接続でも保持し、ホスト名・OS・CPU・メモリ・GPU名・取得可能なVRAMを送ります。NVIDIAはnvidia-smi、macOSはsystem_profiler、その他Linux GPUはlspciを利用します。未導入・非対応時はGPU取得なしとなり、Appleの共有メモリをVRAMとして捏造しません。絶対リポジトリパスはローカルだけに保存し、サーバーには別名だけ送ります。
+設定は `${XDG_CONFIG_HOME:-~/.config}/observatory/worker.json`。端末IDは再起動・再接続でも保持し、ホスト名・OS・CPU・メモリ・GPU名・取得可能なVRAMを送ります。NVIDIAはnvidia-smi、macOSはsystem_profiler、その他Linux GPUはlspciを利用します。未導入・非対応時はGPU取得なしとなり、Appleの共有メモリをVRAMとして捏造しません。絶対リポジトリパスはローカルだけに保存し、サーバーには別名と `owner/name` だけ送ります。
 
 20秒ごとにheartbeatを送り、90秒報告がなければdashboardはofflineになります。idle／受付可能はworkerの枠が空いている意味で、人間の端末使用やGPU負荷の判定ではありません。端末ごとに同時実行は1件。仕様を更新したら `worker install` で再起動してください。Linuxでログアウト後も動かす場合は管理者がuser lingeringを設定する必要があります。systemdのないSSHサーバーでは `observatory worker run` を既存のsupervisorで管理してください。macOSのLaunchAgentはユーザーログイン中の実行です。
+
+`worker owners` で許可したGitHub ownerのrepoは、起動時に `ghq list` と `gh repo list`（archived除く）から `owner/name` として登録します。他人のrepoは、ghqにcloneしてあっても対象外です。未cloneのrepoはジョブ受信時に `ghq get` でcloneします（HTTPS、認証はgit credential helper／ghに依存し、対話プロンプトは出しません）。新しく作ったrepoは `worker install` で再起動すると登録されます。
 
 ChatGPT / dots / 接続済みCLIからMCP `list_devices` で端末IDと許可リポジトリを確認し、次のように依頼します。
 
@@ -281,7 +300,7 @@ ChatGPT / dots / 接続済みCLIからMCP `list_devices` で端末IDと許可リ
 
 workerは `POST /api/worker` の登録・heartbeat・claim・completeを使います。認証は既存の端末キーとSitesサービスアクセス情報で、送信先は固定origin、リダイレクトは禁止です。外部からの待受ポートは開きません。二重取得はサーバーの原子的更新で防ぎ、実行中はleaseを延長します。キャンセルは次のheartbeatで停止、通信断は60秒以内にプロセスグループを停止します。実行権切れはfailedにし、自動再実行しません。
 
-ジョブは許可repoのHEADから `observatory/<job-id>` ブランチと専用worktreeを作ります。成果物は `${XDG_STATE_HOME:-~/.local/state}/observatory/worktrees/<job-id>` に残し、自動push・merge・削除はしません。サーバーへは終了状態とブランチ名のみを返し、会話・stdout・コード・diffはアップロードしません。完了はCLIの正常終了を意味し、レビュー済み・テスト合格を保証しません。
+ジョブは別名repoならそのHEAD、ghq repoなら `git fetch` 後の `origin/HEAD` から `observatory/<job-id>` ブランチと専用worktreeを作ります。成果物は `${XDG_STATE_HOME:-~/.local/state}/observatory/worktrees/<job-id>` に残し、自動push・merge・削除はしません。サーバーへは終了状態とブランチ名のみを返し、会話・stdout・コード・diffはアップロードしません。完了はCLIの正常終了を意味し、レビュー済み・テスト合格を保証しません。
 
 Codexは `exec --sandbox workspace-write`、承認要求なし・ユーザー設定なしで起動します。Claudeは `--restricted` のファイル操作のみで、Bash・MCPを使わず、1件あたり$5上限を指定します（対応する最新版CLIが必要）。CLIのログイン・モデル利用枠は各端末側に必要です。Codexにはこの実装で金額上限を設けていないため、ジョブの時間上限（30〜3600秒）で制限します。一般の作業セッションは従来どおりMCPを利用できます。
 
@@ -376,4 +395,3 @@ Nix / Home Manager の設定ファイルは引き続き repo に含めていま�
 - `home-linux.nix`
 
 `nix` が使える環境ではこちらが第一経路です。macOS は `multi-user nix` を優先し、Linux の HPC や非 sudo 環境では `pixi` backend を明示的に使うか、`nix` install をスキップして fallback させます。
-

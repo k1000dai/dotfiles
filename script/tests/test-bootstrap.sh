@@ -221,8 +221,12 @@ export PATH
   : > "$TEST_ROOT/calls"
   DRY_RUN=1 sync_observatory_worker > "$TEST_ROOT/dry-worker"
   assert_calls 'node:check'
-  grep -q 'observatory-worker.mjs sync' "$TEST_ROOT/dry-worker" || fail 'worker missing from dry run'
-  pass 'worker sync honors authentication, opt-out, and dry-run'
+  # printf %q in bash 3.2 (macOS /bin/bash) escapes commas.
+  grep -qE 'observatory-worker\.mjs sync --default-agents=codex\\?,claude --default-owners=k1000dai\\?,airoa-org' "$TEST_ROOT/dry-worker" \
+    || fail 'worker defaults missing from dry run'
+  OBSERVATORY_WORKER_OWNERS='' DRY_RUN=1 sync_observatory_worker > "$TEST_ROOT/dry-worker"
+  grep -q -- '--default-owners=$' "$TEST_ROOT/dry-worker" || fail 'empty owners did not opt out'
+  pass 'worker sync honors authentication, opt-out, dry-run, and defaults'
 )
 
 # Run both public entrypoints with a mocked Linux platform and inert tool stubs.
@@ -256,4 +260,3 @@ done
   [[ "$(resolve_backend update)" == pixi ]] || fail 'update did not choose pixi'
   pass 'update never prompts to install nix'
 )
-
