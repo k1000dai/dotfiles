@@ -88,9 +88,8 @@
   fonts.fontconfig.enable = true;
   home.file = {
     ".local/bin/observatory" = {
-      source =
-        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/script/observatory.py";
-      executable = true;
+      # Inherit the executable bit without dereferencing this external link during builds.
+      source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/script/observatory.py";
     };
     ".tmux.conf".source = ./.tmux.conf;
     ".codex/AGENTS.md".source =
