@@ -177,15 +177,17 @@ AI CLI は公式が配布する standalone installer で `~/.local/bin` に導�
 | `claude` | `sync_claude_code` | `curl -fsSL https://claude.ai/install.sh \| bash` | `~/.local/bin/claude` |
 | `codex` | `sync_codex` | `curl -fsSL https://chatgpt.com/codex/install.sh \| sh` | `~/.local/bin/codex` |
 | `herdr` | `sync_herdr` | `curl -fsSL https://herdr.dev/install.sh \| sh` | `~/.local/bin/herdr` |
+| `reason-network` | `sync_reason_network` | GitHub release の `install.sh`（`REASON_NETWORK_NO_PROMPT=1`） | `~/.local/bin/reason-network` |
 
 - `@anthropic-ai/claude-code` / `@openai/codex` は npm 側では管理しません (npm 版が残っている場合は各関数が uninstall します)。`config/npm/npm-global-packages.txt` に戻さないでください。
 - `codex` / `herdr` は nix (`pkgs.codex` / `pkgs.herdr`) でも入れません。`home.nix` の該当行はコメントアウトしてあります。
 - codex installer は `~/.local/bin` が PATH に無いと shell profile (`~/.zprofile` など) に PATH ブロックを追記するため、`sync_codex` は installer 実行前に PATH を通します。また `CODEX_NON_INTERACTIVE=1` を渡してプロンプトを抑止します。
 - `claude` は `~/.local/bin/claude` があれば、そのバイナリの `update` を実行します。PATH 上の別のインストールは更新対象にしません。
 - `codex` は [公式の更新手順](https://learn.chatgpt.com/docs/codex/cli) と同じく installer を再実行します。
-- `herdr` は 2 回目以降、導入先のバイナリで `herdr update` を実行します。[公式の注意事項](https://herdr.dev/docs/install/#update) に従い、PATH 上の別バイナリや package manager を指す symlink は更新対象にせず、導入先が symlink の場合は standalone installer で置き換えます。
+- `herdr` は 2 回目以降、導入先のバイナリで `herdr update` を実行します。[公式の注意事項](https://herdr.dev/docs/install/#update) に従い、PATH 上の別バイナリや package manager を指す symlink は更新対象にせず、導入先が symlink の場合は standalone installer で置き換えます。herdr セッション内 (`HERDR_ENV=1`) では herdr が自己更新を拒否するため、更新だけスキップして続行します。
 - `HERDR_INSTALL_DIR` を指定した場合、インストール・更新の両方で同じディレクトリを使います。更新時も同じ値を指定してください。省略時は `~/.local/bin` です。更新に失敗した場合はエラーを返し、別チャネルへの再インストールは行いません。
-- `SKIP_TOOL_INSTALL=1` で 3 CLI のインストール・更新をスキップできます。
+- `reason-network` は未導入のときだけ installer を実行します。standalone 版は自身で自動更新します (`auto_update`)。導入後にチームが未参加で端末から実行している場合だけ `reason-network`（サインイン／招待リンクで参加し、Claude Code・Codex に MCP と hooks を登録）を起動します。端末がなければ案内だけ表示します。`SKIP_REASON_NETWORK=1` で省略できます。
+- `SKIP_TOOL_INSTALL=1` で各 CLI のインストール・更新をスキップできます。
 
 ### Agent 設定と hooks
 
@@ -196,6 +198,152 @@ macOS / Linux の Home Manager と Linux pixi で同じ設定をリンクしま�
 - 共通の `sanitize-artifacts` skill は Codex の [ユーザー用 skills ディレクトリ](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills) `~/.agents/skills/sanitize-artifacts` にも個別リンクします。既存の他の skills はそのまま使えます。
 - hooks は `~/.claude/hooks/` にファイル単位でリンクします。herdr の生成管理 hook と独自の `pre-commit-stop.sh` を分けています。
 - Stop hook はイベントの `cwd` から Git root を解決し、`.pre-commit-config.yaml` と変更がある場合だけ検査します。サブディレクトリからの起動にも対応し、hook による継続時の再帰実行を避けます。
+
+### Agent Observatory: Claude Code / Codex の一元管理
+
+ダッシュボード: <https://agent-observatory-hub.peachy-pony-3346.chatgpt.site>
+
+Claude Code / Codex はローカルの **stdio MCP中継**から接続します。SitesのOAuthを外部CLIで直接実行しません。Node.js 22以上とPython 3.11以上が必要です（既存のnix / pixi環境に含まれます）。
+
+```bash
+# 旧HTTP設定がある場合だけ削除（ほかのMCP設定は残す）
+claude mcp remove --scope user observatory
+codex mcp remove observatory
+
+# 所有者のアカウントでブラウザにサインインし、自分の端末の接続を承認
+python3 script/observatory.py connect "My laptop"
+
+# インストールされているCLIを設定。片方だけなら setup claude / setup codex
+python3 script/observatory.py setup
+```
+
+通常の `./script/update.sh` で `~/.local/bin/observatory` にリンク済みなら、上記は `observatory connect` / `observatory setup` でも実行できます。
+
+`./script/setup.sh` / `./script/update.sh` も最後に接続を確認します。ローカルの認証情報が未作成または期限切れで、端末から実行している場合だけ `connect` を始め、承認できたら続けて `setup` でMCP中継を登録します（報告も有効化されます）。接続済みなら何もしません。承認を中断・タイムアウトしてもsetup/updateは続行します。端末がない場合は案内だけ表示します。`SKIP_OBSERVATORY=1` でこの処理を省略できます。
+
+1. `connect` がローカルで一時的な鍵を生成し、127.0.0.1のランダムなポートで承認結果を待ちます。端末では、承認後のコールバックアドレスの貼り付けも同時に受け付けます。
+2. 開いたブラウザの `/connect` で、サイト所有者としてサインインします。自分が端末で開始したリクエストであることを確認して「この端末を承認して接続」を押します。
+3. サーバーが端末専用の30日間有効なキーを発行。Sitesのサービスアクセス情報と一緒に暗号化し、接続元のプロセスだけが復号します。ブラウザには平文のキーを返しません。
+4. CLIは `${XDG_CONFIG_HOME:-~/.config}/observatory/credentials.json` に mode 600 で保存します。Git・MCP設定・コマンド引数・標準出力にはキーを含めません。
+5. `setup` がClaude Codeのuser scopeとCodexのユーザー設定にローカル中継を登録します。新しいセッションで「Observatoryのlist_tasksを呼んで」と依頼し、接続を確認します。
+
+CLIと同じ端末のブラウザなら、承認すると自動で完了します。SSH先などブラウザが別のマシンにある場合も、ポート転送は不要です。表示されたURLを手元のブラウザで開いて承認します。最後に開く `http://127.0.0.1:<port>/callback?...` のページは読み込みに失敗しますが、そのアドレスバーの内容をすべてコピーし、待機中の端末に貼り付ければ接続が完了します。このアドレスに含まれる認証情報はその `connect` プロセスの鍵で暗号化されているため、他の端末では復号できません。GUIのないLinux（`DISPLAY` / `WAYLAND_DISPLAY` が未設定）ではブラウザを自動で開きません。接続待ちは10分です。サイト所有者のサインイン／承認と、各CLIでのMCP利用許可は手元で行う必要があります。
+
+Codexの登録内容（パスは例。`setup`が実際の絶対パスを設定）:
+
+```toml
+[mcp_servers.observatory]
+command = "node"
+args = ["/path/to/dotfiles/script/observatory-mcp.mjs", "serve"]
+```
+
+Claude Codeでは同じ中継を `claude mcp add --transport stdio --scope user observatory -- node /path/to/dotfiles/script/observatory-mcp.mjs serve` で登録します。同名のHTTP設定や別接続は勝手に上書きしません。移行時は上記のremoveを実行してください。Codex設定がsymlink／追記できないinline tableの場合は既存設定の元ファイルに手動統合します。
+
+```bash
+observatory status       # ローカル設定だけを確認。認証成功はlist_tasksで確認
+observatory disable      # 共通指示による報告だけを停止
+observatory setup        # 報告を再び有効化
+observatory disconnect   # サーバーの端末キーを失効させ、ローカル認証情報を削除
+```
+
+紛失した端末は <https://agent-observatory-hub.peachy-pony-3346.chatgpt.site/connect> の接続済み端末一覧から取り消せます。30日の期限切れやサービスアクセス情報の変更で接続できなくなった場合は `connect` をやり直します。旧 `observatory login codex` / `login claude` も、現在はブラウザ承認への別名です。ChatGPT / dotsは既存のAgent Observatoryプラグインを引き続き利用します。
+
+#### 役割分担: Observatory と Reason Network
+
+| 役割 | 担当 |
+| --- | --- |
+| agent間通信・返信・セッションへの配信・小さなファイル転送 | [Reason Network](https://github.com/reason-machines/reason-network)（`list_team` / `send_message` / `check_inbox`） |
+| タスク依頼・実行キュー・キャンセル | Observatory（`submit_job` / `cancel_job`） |
+| PCスペック・ジョブ結果・エラーの可視化 | Observatory（`list_devices` / `list_jobs` / dashboard） |
+
+Reason Network は端末ごとのdaemonがiroh（P2P、E2E暗号化）で通信します。setup/updateが導入し、チーム参加時に各agentへMCPとhooksを登録します（上記 `sync_reason_network`）。Observatory の `relay_*` ではなく Reason Network で会話します。
+
+#### 常駐worker・端末情報・遠隔ジョブ
+
+新しい端末をジョブ実行可能にする手順:
+
+```bash
+git clone git@github.com:k1000dai/dotfiles.git ~/.dotfiles
+cd ~/.dotfiles && ./script/setup.sh  # 途中でブラウザ承認（connect）→ MCP登録（setup）→ worker常駐
+gh auth login                        # gh repo list と未cloneのrepoのclone（HTTPS）に使用
+codex login                          # ジョブで使うCLIにログイン。Claude Codeは claude を一度起動してログイン
+observatory worker install           # ログイン後に再起動し、repo一覧を登録し直す
+```
+
+既存の端末では `./script/update.sh` だけで同じ状態になります。setup/updateは次を順に行います。
+
+1. 未接続か期限切れなら `observatory connect` → `observatory setup`（上記）。
+2. 接続済みなら `observatory worker sync`。`worker.json` がなければ作成し、未設定の項目だけ既定値を入れて、systemd user service（Linux）／launchd agent（macOS）を登録・再起動します。
+   - agents: `codex claude`（`worker.json` を新規作成したときだけ）
+   - owners: `k1000dai airoa-org`（`owners` が未設定のときだけ）
+
+既定値は `OBSERVATORY_WORKER_AGENTS` / `OBSERVATORY_WORKER_OWNERS`（空白区切り）で変えられ、空文字にするとその許可を入れません。`worker agents` / `worker owners` で明示した値は、空でもupdateで上書きしません。`SKIP_OBSERVATORY_WORKER=1` でworker同期全体を省略、`observatory worker stop` で停止すると以後のupdateでも停止を維持します（再開は `worker install`）。
+
+```bash
+observatory worker owners k1000dai airoa-org  # このGitHub ownerのrepoをghq経由で許可（空で全解除）
+observatory worker agents codex claude        # 使用するCLIを許可（空で実行停止、端末情報の報告のみ）
+observatory worker allow dotfiles ~/.dotfiles # ghq外のGit rootを別名で許可
+observatory worker install                    # 設定を反映して開始／再起動
+observatory worker status
+observatory worker logs
+observatory worker stop                       # 自動起動も停止
+```
+
+設定は `${XDG_CONFIG_HOME:-~/.config}/observatory/worker.json`。端末IDは再起動・再接続でも保持し、ホスト名・OS・CPU・メモリ・GPU名・取得可能なVRAMを送ります。NVIDIAはnvidia-smi、macOSはsystem_profiler、その他Linux GPUはlspciを利用します。未導入・非対応時はGPU取得なしとなり、Appleの共有メモリをVRAMとして捏造しません。絶対リポジトリパスはローカルだけに保存し、サーバーには別名と `owner/name` だけ送ります。
+
+20秒ごとにheartbeatを送り、90秒報告がなければdashboardはofflineになります。idle／受付可能はworkerの枠が空いている意味で、人間の端末使用やGPU負荷の判定ではありません。端末ごとに同時実行は1件。仕様を更新したら `worker install` で再起動してください。Linuxでログアウト後も動かす場合は管理者がuser lingeringを設定する必要があります。systemdのないSSHサーバーでは `observatory worker run` を既存のsupervisorで管理してください。macOSのLaunchAgentはユーザーログイン中の実行です。
+
+`worker owners` で許可したGitHub ownerのrepoは、起動時に `ghq list` と `gh repo list`（archived除く）から `owner/name` として登録します。他人のrepoは、ghqにcloneしてあっても対象外です。未cloneのrepoはジョブ受信時に `ghq get` でcloneします（HTTPS、認証はgit credential helper／ghに依存し、対話プロンプトは出しません）。新しく作ったrepoは `worker install` で再起動すると登録されます。
+
+repoを指定しない・不要なジョブは予約名 `work` を `repo` に指定します（workerは常に `work` を登録し、`worker allow work` は使えません）。`~/work/<job-id>` を作って Git の初期コミットを置き、そこで実行します。許可ownerのrepoでも clone／fetch に失敗した場合は同じく `~/work/<job-id>` へ切り替え、結果に `Repository unavailable` と残します。許可されていないrepoは従来どおり拒否します。
+
+ChatGPT / dots / 接続済みCLIからMCP `list_devices` で端末IDと許可リポジトリを確認し、次のように依頼します。
+
+```json
+{
+  "deviceId": "list_devicesで取得した端末ID",
+  "requestKey": "dotfiles-readme-review-001",
+  "repo": "dotfiles",
+  "agent": "codex",
+  "prompt": "READMEのセットアップ手順をレビューし、必要な修正を行ってください。",
+  "timeoutSeconds": 600
+}
+```
+
+Reason Network に参加済みの端末では、workerが `<person>/observatory-worker@<machine>` として待ち受けます（起動ログに表示、`list_team` にも出ます）。promptに次の行を入れると連携します。
+
+| promptの行 | 動作 |
+| --- | --- |
+| `Observatory-Reply-To: <person>/<session>[@machine]` | 終了状態と結果を、そのセッションへ worker から送ります。`work` ジョブでは変更・追加されたテキストファイル（最大10件、各256KB・計512KB、隠しファイル除く）も添付します。グループ宛先（`*` / `repo:` / `person/*`）は受け付けません |
+| `Observatory-Files: <tag>` | 事前に `send_message` で worker へ本文 `observatory-files: <tag>` と `files` を送っておくと、`work` ジョブでは `~/work/<job-id>/` に、repoジョブでは worktree の `observatory-files/` に配置します。未着なら最大5分待ち、届かなければ失敗にします |
+
+ファイルを受け付けるのは worker と同じ person のセッションからだけです。worker はメッセージを `reason-network listen` で受け取り、受信ファイルを `${XDG_STATE_HOME:-~/.local/state}/observatory/files/<tag>` に退避してから使います。ジョブ内のagentにはReason NetworkのMCPを渡しません（無人実行への割り込み・再帰的な依頼を避けるため）。
+
+上記は `submit_job` の引数です。同じ `requestKey` の再送は同じジョブを返します。`list_jobs` で状態・結果、`cancel_job(id)` で中止できます。`parent` は任意の親ジョブIDで追跡に使います。依存順序の自動実行や親エージェントの自動再開はまだ行いません。端末選択は明示指定です。
+
+workerは `POST /api/worker` の登録・heartbeat・claim・completeを使います。認証は既存の端末キーとSitesサービスアクセス情報で、送信先は固定origin、リダイレクトは禁止です。外部からの待受ポートは開きません。二重取得はサーバーの原子的更新で防ぎ、実行中はleaseを延長します。キャンセルは次のheartbeatで停止、通信断は60秒以内にプロセスグループを停止します。実行権切れはfailedにし、自動再実行しません。
+
+ジョブは別名repoならそのHEAD、ghq repoなら `git fetch` 後の `origin/HEAD` から `observatory/<job-id>` ブランチと専用worktreeを作ります。成果物は `${XDG_STATE_HOME:-~/.local/state}/observatory/worktrees/<job-id>` に残し、自動push・merge・削除はしません。サーバーへは終了状態とブランチ名のみを返し、会話・stdout・コード・diffはアップロードしません。完了はCLIの正常終了を意味し、レビュー済み・テスト合格を保証しません。
+
+Codexは `exec --sandbox danger-full-access`、承認要求なし・サンドボックスなし・ユーザー設定なしで起動します。Claudeは `--restricted` にBashとファイル操作を加え、Bashコマンドを承認なし・サンドボックスなしで実行します。MCPはReason Networkのみで、1件あたり$5上限を指定します（対応する最新版CLIが必要）。CLIのログイン・モデル利用枠は各端末側に必要です。Codexにはこの実装で金額上限を設けていないため、ジョブの時間上限（30〜3600秒）で制限します。一般の作業セッションは従来どおりMCPを利用できます。
+
+workerは同じOSユーザーの権限で動きます。信頼する自分のリポジトリと依頼だけを許可してください。worktreeはVM／コンテナによる隔離ではありません。
+
+#### タスクの報告
+
+`setup` は `${XDG_CONFIG_HOME:-~/.config}/observatory/enabled` を作成します。共通指示はこのマーカーと接続済みMCPを確認し、次を報告します。
+
+| タイミング | MCP操作 |
+| --- | --- |
+| 新しい作業 | `register_task(title, agent, parent?, detail?)` のIDを保持 |
+| 作業開始 | `update_task(id, "running")` |
+| 依存関係・判断待ち | `update_task(id, "blocked")` |
+| 作業と必要な確認が完了 | `update_task(id, "done")` |
+| 子エージェントへ委譲 | 親が `parent=<親ID>` で登録し、返された子IDを渡す |
+
+これは協調的な報告方式です。通常のCLIセッションの全tool call・クラッシュの自動監視は行いません。上記workerへ明示的に依頼したジョブのみ、実行と停止を管理します。送信するのは機密性を確認した短いタスク情報だけで、会話全文・コード・diff・秘密情報・絶対パスは含めません。認証障害は一度報告し、本来の作業は継続します。既存のherdr / pre-commit hooksは変更しません。
+
+サーバーは所有者限定のSitesアクセスを維持し、中継専用キーでも認証します。キーのハッシュと所有者を保存し、期限切れ・取り消し済みキーを拒否します。タスク操作はキー所有者に限定します。ダッシュボードは表示専用です。HTTP MCP URLへの直接OAuth、OIDCメタデータの上書き、DCR、サイトの一般公開はこの接続に不要です。
 
 ### Codex pet
 
@@ -217,6 +365,8 @@ uv tool install huggingface_hub
 
 | パス | 内容 | リンク先 / 反映方法 |
 | --- | --- | --- |
+| `script/observatory-worker.mjs` | 端末情報・heartbeat・ジョブ実行・常駐設定 | `observatory worker` / setup・update経由 |
+| `script/observatory.py` | Observatory の MCP 登録・ログイン補助・報告の有効化 | `~/.local/bin/observatory` (nix / pixi) |
 | `script/setup.sh` / `script/update.sh` | 統合 bootstrap / 更新反映 | - |
 | `flake.nix`, `home*.nix` | Nix / Home Manager 設定 | `home-manager switch --flake` |
 | `config/nvim` | Neovim 設定 | `~/.config/nvim` |
@@ -247,6 +397,8 @@ repo 自体のチェックは pre-commit で行います。
 pre-commit run --all-files
 bash script/tests/test-bootstrap.sh
 bash script/tests/test-agent-hooks.sh
+python3 script/tests/test-observatory.py
+node --test script/tests/test-observatory-bridge.mjs script/tests/test-observatory-worker.mjs
 ```
 
 - `nixfmt` (nix ファイル)、`shellcheck` (shell script)、標準 hooks (行末空白・EOF 改行など)

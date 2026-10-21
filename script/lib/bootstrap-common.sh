@@ -336,6 +336,7 @@ setup_links() {
   link_path "${REPO_ROOT}/config/ai-agents/skills/sanitize-artifacts" "${HOME}/.agents/skills/sanitize-artifacts"
   link_path "${REPO_ROOT}/config/claude/hooks/herdr-agent-state.sh" "${HOME}/.claude/hooks/herdr-agent-state.sh"
   link_path "${REPO_ROOT}/config/claude/hooks/pre-commit-stop.sh" "${HOME}/.claude/hooks/pre-commit-stop.sh"
+  link_path "${REPO_ROOT}/script/observatory.py" "${HOME}/.local/bin/observatory"
 
   link_path "${REPO_ROOT}/config/nvim" "${HOME}/.config/nvim"
   link_path "${REPO_ROOT}/config/lazygit" "${HOME}/.config/lazygit"
@@ -533,11 +534,112 @@ sync_herdr() {
   # A symlink can point into a package manager's store; install a standalone
   # copy in that case instead of asking it to update the managed target.
   if [[ -x "${herdr_bin}" && ! -L "${herdr_bin}" ]]; then
+    # herdr refuses to replace itself from inside one of its own sessions.
+    if [[ "${HERDR_ENV:-}" == "1" ]]; then
+      log "Skipping herdr update inside a herdr session; run herdr update after detaching"
+      return 0
+    fi
     log "Updating herdr via herdr update"
     run "${herdr_bin}" update
   else
     log "Installing herdr via official standalone installer"
     HERDR_INSTALL_DIR="${install_dir}" safe_curl_run 'https://herdr.dev/install.sh' 'herdr'
+  fi
+}
+
+has_interactive_stdin() {
+  [[ -t 0 ]]
+}
+
+sync_reason_network() {
+  local bin_dir="${REASON_NETWORK_BIN_DIR:-${HOME}/.local/bin}"
+  local reason_network="${bin_dir}/reason-network"
+
+  if [[ "${SKIP_REASON_NETWORK:-0}" == "1" ]]; then
+    log "Skipping Reason Network because SKIP_REASON_NETWORK=1"
+    return 0
+  fi
+
+  # Reason Network carries agent-to-agent messages and job replies; standalone
+  # installs update themselves, so the release installer only runs when missing.
+  ensure_path "${bin_dir}"
+  if [[ ! -x "${reason_network}" ]]; then
+    if [[ "${SKIP_TOOL_INSTALL}" == "1" ]]; then
+      log "Skipping Reason Network installer because SKIP_TOOL_INSTALL=1"
+      return 0
+    fi
+    log "Installing Reason Network via its release installer"
+    if ! REASON_NETWORK_BIN_DIR="${bin_dir}" REASON_NETWORK_NO_PROMPT=1 \
+      safe_curl_run 'https://github.com/reason-machines/reason-network/releases/latest/download/install.sh' 'reason-network'; then
+      log "Reason Network was not installed; agent messaging stays unavailable"
+      return 0
+    fi
+  fi
+
+  if [[ "${DRY_RUN}" != "1" ]] && "${reason_network}" team --json >/dev/null 2>&1; then
+    log "Reason Network team is already joined"
+    return 0
+  fi
+
+  if ! has_interactive_stdin; then
+    log "Reason Network has no team yet and no terminal is available; run: reason-network"
+    return 0
+  fi
+
+  log "Joining Reason Network; sign in or paste an invite (SKIP_REASON_NETWORK=1 skips this)"
+  run "${reason_network}" || log "Reason Network was not joined; run reason-network later"
+}
+
+sync_observatory() {
+  local observatory="${REPO_ROOT}/script/observatory.py"
+  local bridge="${REPO_ROOT}/script/observatory-mcp.mjs"
+
+  if [[ "${SKIP_OBSERVATORY:-0}" == "1" ]]; then
+    log "Skipping Observatory connection because SKIP_OBSERVATORY=1"
+    return 0
+  fi
+
+  if ! command -v node >/dev/null 2>&1 || ! python3 -c 'import tomllib' >/dev/null 2>&1; then
+    log "Skipping Observatory connection: Node.js and Python 3.11+ are required"
+    return 0
+  fi
+
+  # Pairing needs a browser approval, so only ask when the local credentials
+  # are missing or expired. `check` reads them without contacting the server.
+  if node "${bridge}" check >/dev/null 2>&1; then
+    log "Observatory is already connected"
+    return 0
+  fi
+
+  if [[ "${DRY_RUN}" != "1" ]] && ! has_interactive_stdin; then
+    log "Observatory is not connected and no terminal is available; run: observatory connect"
+    return 0
+  fi
+
+  # A declined or timed-out approval must not abort the rest of setup/update.
+  log "Connecting Observatory; approve it in a browser (SKIP_OBSERVATORY=1 skips this)"
+  if ! run python3 "${observatory}" connect "$(uname -n)"; then
+    log "Observatory was not connected; run observatory connect later"
+    return 0
+  fi
+
+  run python3 "${observatory}" setup \
+    || log "Observatory agent registration failed; run observatory setup after resolving it"
+}
+
+sync_observatory_worker() {
+  # Defaults apply only to unset worker choices; set either variable empty to opt out.
+  local agents="${OBSERVATORY_WORKER_AGENTS-codex claude}"
+  local owners="${OBSERVATORY_WORKER_OWNERS-k1000dai airoa-org}"
+
+  if [[ "${SKIP_OBSERVATORY:-0}" == "1" || "${SKIP_OBSERVATORY_WORKER:-0}" == "1" ]]; then
+    return 0
+  fi
+  if command -v node >/dev/null 2>&1 && node "${REPO_ROOT}/script/observatory-mcp.mjs" check >/dev/null 2>&1; then
+    log "Syncing Observatory resident worker (default agents: ${agents:-none}; GitHub owners: ${owners:-none})"
+    run node "${REPO_ROOT}/script/observatory-worker.mjs" sync \
+      "--default-agents=${agents// /,}" "--default-owners=${owners// /,}" \
+      || log "Worker service unavailable; run observatory worker install or use worker run with your supervisor"
   fi
 }
 
@@ -702,6 +804,9 @@ setup_with_pixi() {
   sync_claude_code
   sync_codex
   sync_herdr
+  sync_reason_network
+  sync_observatory
+  sync_observatory_worker
   log "Pixi-based setup completed. Restart the shell or run: source ~/.zshrc"
 }
 
@@ -727,6 +832,9 @@ setup_with_nix() {
   sync_claude_code
   sync_codex
   sync_herdr
+  sync_reason_network
+  sync_observatory
+  sync_observatory_worker
   log "Nix-based setup completed."
 }
 

@@ -7,7 +7,7 @@
   - Update must never prompt to install nix. It updates nixpkgs and reapplies Home Manager, or refreshes Linux pixi links and runs `pixi global sync` when nix is absent.
 - Keep shared CLI tools aligned between `home*.nix` and `config/pixi/manifests/pixi-global-linux.toml` where available.
 - Manage npm-only CLIs in `config/npm/npm-global-packages.txt`, installed with `--prefix "$HOME/.local"`.
-- Claude Code, Codex, and herdr use `sync_claude_code` / `sync_codex` / `sync_herdr` in the shared bootstrap script. Do not add them to npm manifests or nix packages.
+- Claude Code, Codex, herdr, and Reason Network use `sync_claude_code` / `sync_codex` / `sync_herdr` / `sync_reason_network` in the shared bootstrap script. Do not add them to npm manifests or nix packages.
 - When adding or relocating dotfiles, update Home Manager declarations, `setup_links` in the shared bootstrap script, and `README.md`. Preserve `*.bak.<timestamp>` backups for link conflicts.
 - Shared agent instructions live in `config/ai-agents/INSTRUCTIONS.md`; `config/claude/CLAUDE.md` and `config/codex/AGENTS.md` are symlinks to it. Keep repository-specific rules here.
 

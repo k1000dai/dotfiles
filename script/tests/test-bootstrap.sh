@@ -114,6 +114,11 @@ export PATH
   [[ ! -s "$TEST_ROOT/calls" ]] || fail 'dry run updated herdr'
   pass 'herdr skip and dry-run suppress execution'
 
+  : > "$TEST_ROOT/calls"
+  HERDR_ENV=1 sync_herdr 2> /dev/null
+  assert_calls ''
+  pass 'herdr update is skipped inside a herdr session'
+
   stub_binary "$HERDR_INSTALL_DIR/herdr" failed-herdr 23
   safe_curl_run() { fail 'failed update fell back to installer'; }
   status=0
@@ -151,6 +156,7 @@ export PATH
   printf 'runtime state\n' > "$HOME/.config/herdr/runtime"
   setup_links > /dev/null 2>&1
   for mapping in \
+    '.local/bin/observatory:script/observatory.py' \
     '.codex/AGENTS.md:config/codex/AGENTS.md' \
     '.claude/CLAUDE.md:config/claude/CLAUDE.md' \
     '.claude/settings.json:config/claude/settings.json' \
@@ -166,6 +172,92 @@ export PATH
   setup_links > /dev/null 2>&1
   cmp "$HOME/.codex-old" "$HOME/.codex/AGENTS.md.bak.regression"
   pass 'Linux links preserve backups, runtime state, and unmanaged skills on rerun'
+)
+
+(
+  node() { printf 'node:%s\n' "$2" >> "$TEST_ROOT/calls"; return "${CHECK_STATUS:-1}"; }
+  python3() {
+    [[ "$1" != -c ]] || return 0
+    printf 'python3:%s\n' "$2" >> "$TEST_ROOT/calls"
+    [[ "$2" != connect ]] || return "${CONNECT_STATUS:-0}"
+  }
+  has_interactive_stdin() { return "${TTY_STATUS:-0}"; }
+  : > "$TEST_ROOT/calls"
+  CHECK_STATUS=0 sync_observatory 2> /dev/null
+  assert_calls 'node:check'
+  pass 'Observatory skips pairing when already connected'
+
+  : > "$TEST_ROOT/calls"
+  sync_observatory 2> /dev/null
+  assert_calls $'node:check\npython3:connect\npython3:setup'
+  pass 'Observatory pairs and registers agents when not connected'
+
+  : > "$TEST_ROOT/calls"
+  CONNECT_STATUS=130 sync_observatory 2> /dev/null
+  assert_calls $'node:check\npython3:connect'
+  pass 'Observatory pairing failure does not abort bootstrap'
+
+  : > "$TEST_ROOT/calls"
+  TTY_STATUS=1 sync_observatory 2> /dev/null
+  assert_calls 'node:check'
+  : > "$TEST_ROOT/calls"
+  SKIP_OBSERVATORY=1 sync_observatory 2> /dev/null
+  assert_calls ''
+  : > "$TEST_ROOT/calls"
+  DRY_RUN=1 TTY_STATUS=1 sync_observatory > "$TEST_ROOT/dry-observatory" 2> /dev/null
+  assert_calls 'node:check'
+  grep -q 'observatory.py connect' "$TEST_ROOT/dry-observatory" || fail 'dry run omitted Observatory pairing'
+  pass 'Observatory honors no terminal, SKIP_OBSERVATORY, and DRY_RUN'
+)
+
+# Reason Network installs only when missing and joins a team only from a terminal.
+(
+  bin_dir="$TEST_ROOT/reason-bin"
+  REASON_NETWORK_BIN_DIR="$bin_dir"
+  safe_curl_run() { printf 'install:%s\n' "$2" >> "$TEST_ROOT/calls"; stub_binary "$bin_dir/reason-network" reason-network "${TEAM_STATUS:-1}"; }
+  has_interactive_stdin() { return "${TTY_STATUS:-0}"; }
+  : > "$TEST_ROOT/calls"
+  TTY_STATUS=1 sync_reason_network 2> /dev/null
+  assert_calls $'install:reason-network\nreason-network:team --json'
+  : > "$TEST_ROOT/calls"
+  sync_reason_network 2> /dev/null
+  assert_calls $'reason-network:team --json\nreason-network:'
+  stub_binary "$bin_dir/reason-network" reason-network 0
+  : > "$TEST_ROOT/calls"
+  sync_reason_network 2> /dev/null
+  assert_calls 'reason-network:team --json'
+  : > "$TEST_ROOT/calls"
+  SKIP_REASON_NETWORK=1 sync_reason_network 2> /dev/null
+  assert_calls ''
+  rm -f "$bin_dir/reason-network"
+  : > "$TEST_ROOT/calls"
+  SKIP_TOOL_INSTALL=1 sync_reason_network 2> /dev/null
+  assert_calls ''
+  pass 'Reason Network installs once, skips joined teams, and honors opt-outs'
+)
+
+# Worker synchronization is skipped without a connection, respects opt-out,
+# and routes through run() so dry-run never starts a daemon.
+(
+  node() { printf 'node:%s\n' "$2" >> "$TEST_ROOT/calls"; return "${CHECK_STATUS:-0}"; }
+  : > "$TEST_ROOT/calls"
+  SKIP_OBSERVATORY_WORKER=1 sync_observatory_worker
+  assert_calls ''
+  : > "$TEST_ROOT/calls"
+  CHECK_STATUS=1 sync_observatory_worker
+  assert_calls 'node:check'
+  : > "$TEST_ROOT/calls"
+  sync_observatory_worker
+  assert_calls $'node:check\nnode:sync'
+  : > "$TEST_ROOT/calls"
+  DRY_RUN=1 sync_observatory_worker > "$TEST_ROOT/dry-worker"
+  assert_calls 'node:check'
+  # printf %q in bash 3.2 (macOS /bin/bash) escapes commas.
+  grep -qE 'observatory-worker\.mjs sync --default-agents=codex\\?,claude --default-owners=k1000dai\\?,airoa-org' "$TEST_ROOT/dry-worker" \
+    || fail 'worker defaults missing from dry run'
+  OBSERVATORY_WORKER_OWNERS='' DRY_RUN=1 sync_observatory_worker > "$TEST_ROOT/dry-worker"
+  grep -q -- '--default-owners=$' "$TEST_ROOT/dry-worker" || fail 'empty owners did not opt out'
+  pass 'worker sync honors authentication, opt-out, dry-run, and defaults'
 )
 
 # Run both public entrypoints with a mocked Linux platform and inert tool stubs.
@@ -186,6 +278,7 @@ for entrypoint in setup update; do
   [[ -z "$(ls -A "$TEST_ROOT/dry-home")" ]] || fail "$entrypoint dry run changed HOME"
   grep -q 'pixi global sync' "$TEST_ROOT/$entrypoint.log" || fail "$entrypoint missed pixi sync"
   grep -q 'herdr.dev/install.sh' "$TEST_ROOT/$entrypoint.log" || fail "$entrypoint missed herdr"
+  grep -q 'reason-network/releases/latest/download/install.sh' "$TEST_ROOT/$entrypoint.log" || fail "$entrypoint missed Reason Network"
   pass "$entrypoint pixi dry run on mocked Linux"
 done
 

@@ -87,6 +87,10 @@
   ];
   fonts.fontconfig.enable = true;
   home.file = {
+    ".local/bin/observatory" = {
+      # Inherit the executable bit without dereferencing this external link during builds.
+      source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/script/observatory.py";
+    };
     ".tmux.conf".source = ./.tmux.conf;
     ".codex/AGENTS.md".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/codex/AGENTS.md";
