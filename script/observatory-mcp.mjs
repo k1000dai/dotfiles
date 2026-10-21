@@ -22,6 +22,13 @@ export function unseal(packet,privateKey,state){
   delete value.state;
   return value;
 }
+export function acceptCallback(href,callback,state,privateKey){
+  const url=new URL(href);
+  if(url.origin+url.pathname!==callback||url.searchParams.get('state')!==state)throw Error('Not the callback address for this connection request.');
+  // Sealed JSON/base64 never contains spaces; restore '+' if a copied address left it unescaped.
+  const raw=(url.searchParams.get('sealed')||'').replaceAll(' ','+');if(raw.length>16000)throw Error('Callback address is too long.');
+  return unseal(JSON.parse(raw),privateKey,state);
+}
 export async function saveCredentials(value){
   const path=credentialsPath();await mkdir(dirname(path),{recursive:true,mode:0o700});
   const temporary=path+'.'+randomBytes(8).toString('hex')+'.tmp';
@@ -55,33 +62,37 @@ export async function serve(){
 export async function connect(label='Local agents'){
   const {publicKey,privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});
   const state=randomBytes(32).toString('hex');
-  let resolveDone,rejectDone;
+  let resolveDone,rejectDone,callback,prompt,saved=false;
   const done=new Promise((resolve,reject)=>{resolveDone=resolve;rejectDone=reject});
+  // The loopback callback and a pasted callback address (browser on another machine) both finish pairing.
+  const finish=async credential=>{if(saved)return;saved=true;try{await saveCredentials(credential);resolveDone()}catch(error){rejectDone(error);throw error}};
   const server=createServer(async(request,response)=>{
     try{
       const expected='127.0.0.1:'+server.address().port;
       if(request.headers.host!==expected||request.method!=='GET'){response.writeHead(403).end('Forbidden');return}
-      const url=new URL(request.url,'http://'+expected);
-      if(url.pathname!=='/callback'||url.searchParams.get('state')!==state){response.writeHead(400).end('Invalid connection callback');return}
-      const raw=url.searchParams.get('sealed')||'';if(raw.length>16000)throw Error();
-      const credential=unseal(JSON.parse(raw),privateKey,state);
-      await saveCredentials(credential);
+      await finish(acceptCallback(new URL(request.url,'http://'+expected).href,callback,state,privateKey));
       response.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'"}).end('<!doctype html><title>Observatory connected</title><body style="background:#0f1418;color:#dce5e1;font-family:system-ui;padding:48px"><h1>Connected.</h1><p>You can close this tab and return to your terminal.</p></body>');
-      resolveDone();
     }catch{response.writeHead(400).end('Connection could not be verified. Retry from the terminal.')}
   });
   const timer=setTimeout(()=>rejectDone(Error('Pairing timed out. Run observatory connect again.')),10*60*1000);
   try{
     await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve)});
-    const callback='http://127.0.0.1:'+server.address().port+'/callback';
+    callback='http://127.0.0.1:'+server.address().port+'/callback';
     const params=new URLSearchParams({key:publicKey.export({type:'spki',format:'der'}).toString('base64'),state,callback,label:label.slice(0,80)});
     const url=ORIGIN+'/connect#'+params;
-    console.error('Open this URL on this computer and approve the connection:\n'+url+'\nWaiting for approval...');
-    const program=process.platform==='darwin'?'open':process.platform==='win32'?null:'xdg-open';
+    console.error('Open this URL in your browser and approve the connection:\n'+url+'\nWaiting for approval...');
+    const headless=process.platform==='linux'&&!process.env.DISPLAY&&!process.env.WAYLAND_DISPLAY;
+    const program=headless?null:process.platform==='darwin'?'open':process.platform==='win32'?null:'xdg-open';
     if(program){const child=spawn(program,[url],{stdio:'ignore'});child.on('error',()=>{});child.unref()}
+    if(process.stdin.isTTY){
+      console.error('If the browser is on another computer, the final '+callback+' page will not load.\nCopy that page\'s full address from the address bar and paste it here:');
+      prompt=createInterface({input:process.stdin,output:process.stderr,terminal:true});
+      prompt.on('SIGINT',()=>rejectDone(Error('Pairing cancelled.')));
+      prompt.on('line',line=>{if(!line.trim()||saved)return;try{finish(acceptCallback(line.trim(),callback,state,privateKey)).catch(()=>{})}catch(error){console.error((error instanceof TypeError?'Not a valid address.':error.message)+' Paste the full address, or wait for the browser.')}});
+    }
     await done;
     console.error('Connected. Credentials saved privately. Run observatory setup, then restart your agent.');
-  }finally{clearTimeout(timer);server.close();server.closeIdleConnections()}
+  }finally{clearTimeout(timer);prompt?.close();server.close();server.closeIdleConnections()}
 }
 async function disconnect(){
   const credential=await loadCredentials();
@@ -91,6 +102,6 @@ async function disconnect(){
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   const command=process.argv[2]||'serve';
-  try{if(command==='serve')await serve();else if(command==='connect')await connect(process.argv.slice(3).join(' ')||'Local agents');else if(command==='disconnect')await disconnect();else throw Error('Usage: observatory-mcp [serve|connect [label]|disconnect]')}
+  try{if(command==='serve')await serve();else if(command==='connect')await connect(process.argv.slice(3).join(' ')||'Local agents');else if(command==='disconnect')await disconnect();else if(command==='check')console.error('Connected until '+(await loadCredentials()).expires+'.');else throw Error('Usage: observatory-mcp [serve|connect [label]|disconnect|check]')}
   catch(error){console.error(error.message||'Connection failed.');process.exitCode=1}
 }

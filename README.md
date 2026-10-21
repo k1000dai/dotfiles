@@ -215,15 +215,17 @@ python3 script/observatory.py connect "My laptop"
 python3 script/observatory.py setup
 ```
 
-通常の `./script/update.sh` で `~/.local/bin/observatory` にリンク済みなら、上記は `observatory connect` / `observatory setup` でも実行できます。setup/update自体ではMCP登録・接続・データ送信を行いません。
+通常の `./script/update.sh` で `~/.local/bin/observatory` にリンク済みなら、上記は `observatory connect` / `observatory setup` でも実行できます。
 
-1. `connect` がローカルで一時的な鍵を生成し、127.0.0.1のランダムなポートで承認結果を待ちます。
+`./script/setup.sh` / `./script/update.sh` も最後に接続を確認します。ローカルの認証情報が未作成または期限切れで、端末から実行している場合だけ `connect` を始め、承認できたら続けて `setup` でMCP中継を登録します（報告も有効化されます）。接続済みなら何もしません。承認を中断・タイムアウトしてもsetup/updateは続行します。端末がない場合は案内だけ表示します。`SKIP_OBSERVATORY=1` でこの処理を省略できます。
+
+1. `connect` がローカルで一時的な鍵を生成し、127.0.0.1のランダムなポートで承認結果を待ちます。端末では、承認後のコールバックアドレスの貼り付けも同時に受け付けます。
 2. 開いたブラウザの `/connect` で、サイト所有者としてサインインします。自分が端末で開始したリクエストであることを確認して「この端末を承認して接続」を押します。
 3. サーバーが端末専用の30日間有効なキーを発行。Sitesのサービスアクセス情報と一緒に暗号化し、接続元のプロセスだけが復号します。ブラウザには平文のキーを返しません。
 4. CLIは `${XDG_CONFIG_HOME:-~/.config}/observatory/credentials.json` に mode 600 で保存します。Git・MCP設定・コマンド引数・標準出力にはキーを含めません。
 5. `setup` がClaude Codeのuser scopeとCodexのユーザー設定にローカル中継を登録します。新しいセッションで「Observatoryのlist_tasksを呼んで」と依頼し、接続を確認します。
 
-ブラウザはCLIを実行した同じ端末で開いてください。自動で開けない場合は端末に表示されたURLをその端末のブラウザに貼り付けます。接続待ちは10分です。サイト所有者のサインイン／承認と、各CLIでのMCP利用許可は手元で行う必要があります。
+CLIと同じ端末のブラウザなら、承認すると自動で完了します。SSH先などブラウザが別のマシンにある場合も、ポート転送は不要です。表示されたURLを手元のブラウザで開いて承認します。最後に開く `http://127.0.0.1:<port>/callback?...` のページは読み込みに失敗しますが、そのアドレスバーの内容をすべてコピーし、待機中の端末に貼り付ければ接続が完了します。このアドレスに含まれる認証情報はその `connect` プロセスの鍵で暗号化されているため、他の端末では復号できません。GUIのないLinux（`DISPLAY` / `WAYLAND_DISPLAY` が未設定）ではブラウザを自動で開きません。接続待ちは10分です。サイト所有者のサインイン／承認と、各CLIでのMCP利用許可は手元で行う必要があります。
 
 Codexの登録内容（パスは例。`setup`が実際の絶対パスを設定）:
 

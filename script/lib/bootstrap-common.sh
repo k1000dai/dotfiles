@@ -542,6 +542,47 @@ sync_herdr() {
   fi
 }
 
+has_interactive_stdin() {
+  [[ -t 0 ]]
+}
+
+sync_observatory() {
+  local observatory="${REPO_ROOT}/script/observatory.py"
+  local bridge="${REPO_ROOT}/script/observatory-mcp.mjs"
+
+  if [[ "${SKIP_OBSERVATORY:-0}" == "1" ]]; then
+    log "Skipping Observatory connection because SKIP_OBSERVATORY=1"
+    return 0
+  fi
+
+  if ! command -v node >/dev/null 2>&1 || ! python3 -c 'import tomllib' >/dev/null 2>&1; then
+    log "Skipping Observatory connection: Node.js and Python 3.11+ are required"
+    return 0
+  fi
+
+  # Pairing needs a browser approval, so only ask when the local credentials
+  # are missing or expired. `check` reads them without contacting the server.
+  if node "${bridge}" check >/dev/null 2>&1; then
+    log "Observatory is already connected"
+    return 0
+  fi
+
+  if [[ "${DRY_RUN}" != "1" ]] && ! has_interactive_stdin; then
+    log "Observatory is not connected and no terminal is available; run: observatory connect"
+    return 0
+  fi
+
+  # A declined or timed-out approval must not abort the rest of setup/update.
+  log "Connecting Observatory; approve it in a browser (SKIP_OBSERVATORY=1 skips this)"
+  if ! run python3 "${observatory}" connect "$(uname -n)"; then
+    log "Observatory was not connected; run observatory connect later"
+    return 0
+  fi
+
+  run python3 "${observatory}" setup \
+    || log "Observatory agent registration failed; run observatory setup after resolving it"
+}
+
 confirm_install_nix() {
   local answer
 
@@ -703,6 +744,7 @@ setup_with_pixi() {
   sync_claude_code
   sync_codex
   sync_herdr
+  sync_observatory
   log "Pixi-based setup completed. Restart the shell or run: source ~/.zshrc"
 }
 
@@ -728,6 +770,7 @@ setup_with_nix() {
   sync_claude_code
   sync_codex
   sync_herdr
+  sync_observatory
   log "Nix-based setup completed."
 }
 

@@ -169,6 +169,42 @@ export PATH
   pass 'Linux links preserve backups, runtime state, and unmanaged skills on rerun'
 )
 
+(
+  node() { printf 'node:%s\n' "$2" >> "$TEST_ROOT/calls"; return "${CHECK_STATUS:-1}"; }
+  python3() {
+    [[ "$1" != -c ]] || return 0
+    printf 'python3:%s\n' "$2" >> "$TEST_ROOT/calls"
+    [[ "$2" != connect ]] || return "${CONNECT_STATUS:-0}"
+  }
+  has_interactive_stdin() { return "${TTY_STATUS:-0}"; }
+  : > "$TEST_ROOT/calls"
+  CHECK_STATUS=0 sync_observatory 2> /dev/null
+  assert_calls 'node:check'
+  pass 'Observatory skips pairing when already connected'
+
+  : > "$TEST_ROOT/calls"
+  sync_observatory 2> /dev/null
+  assert_calls $'node:check\npython3:connect\npython3:setup'
+  pass 'Observatory pairs and registers agents when not connected'
+
+  : > "$TEST_ROOT/calls"
+  CONNECT_STATUS=130 sync_observatory 2> /dev/null
+  assert_calls $'node:check\npython3:connect'
+  pass 'Observatory pairing failure does not abort bootstrap'
+
+  : > "$TEST_ROOT/calls"
+  TTY_STATUS=1 sync_observatory 2> /dev/null
+  assert_calls 'node:check'
+  : > "$TEST_ROOT/calls"
+  SKIP_OBSERVATORY=1 sync_observatory 2> /dev/null
+  assert_calls ''
+  : > "$TEST_ROOT/calls"
+  DRY_RUN=1 TTY_STATUS=1 sync_observatory > "$TEST_ROOT/dry-observatory" 2> /dev/null
+  assert_calls 'node:check'
+  grep -q 'observatory.py connect' "$TEST_ROOT/dry-observatory" || fail 'dry run omitted Observatory pairing'
+  pass 'Observatory honors no terminal, SKIP_OBSERVATORY, and DRY_RUN'
+)
+
 # Run both public entrypoints with a mocked Linux platform and inert tool stubs.
 # DRY_RUN must prevent all commands below from actually running.
 uname() { printf 'Linux\n'; }
