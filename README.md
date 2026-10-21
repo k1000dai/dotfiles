@@ -325,7 +325,7 @@ workerは `POST /api/worker` の登録・heartbeat・claim・completeを使い�
 
 ジョブは別名repoならそのHEAD、ghq repoなら `git fetch` 後の `origin/HEAD` から `observatory/<job-id>` ブランチと専用worktreeを作ります。成果物は `${XDG_STATE_HOME:-~/.local/state}/observatory/worktrees/<job-id>` に残し、自動push・merge・削除はしません。サーバーへは終了状態とブランチ名のみを返し、会話・stdout・コード・diffはアップロードしません。完了はCLIの正常終了を意味し、レビュー済み・テスト合格を保証しません。
 
-Codexは `exec --sandbox workspace-write`、承認要求なし・ユーザー設定なしで起動します。Claudeは `--restricted` のファイル操作のみで、Bash・MCPを使わず、1件あたり$5上限を指定します（対応する最新版CLIが必要）。CLIのログイン・モデル利用枠は各端末側に必要です。Codexにはこの実装で金額上限を設けていないため、ジョブの時間上限（30〜3600秒）で制限します。一般の作業セッションは従来どおりMCPを利用できます。
+Codexは `exec --sandbox workspace-write`、承認要求なし・ユーザー設定なしで起動します。Claudeは `--restricted` にBashとファイル操作を加え、Bashコマンドを承認なし・サンドボックスなしで実行します。MCPはReason Networkのみで、1件あたり$5上限を指定します（対応する最新版CLIが必要）。CLIのログイン・モデル利用枠は各端末側に必要です。Codexにはこの実装で金額上限を設けていないため、ジョブの時間上限（30〜3600秒）で制限します。一般の作業セッションは従来どおりMCPを利用できます。
 
 workerは同じOSユーザーの権限で動きます。信頼する自分のリポジトリと依頼だけを許可してください。worktreeはVM／コンテナによる隔離ではありません。
 
