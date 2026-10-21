@@ -114,6 +114,11 @@ export PATH
   [[ ! -s "$TEST_ROOT/calls" ]] || fail 'dry run updated herdr'
   pass 'herdr skip and dry-run suppress execution'
 
+  : > "$TEST_ROOT/calls"
+  HERDR_ENV=1 sync_herdr 2> /dev/null
+  assert_calls ''
+  pass 'herdr update is skipped inside a herdr session'
+
   stub_binary "$HERDR_INSTALL_DIR/herdr" failed-herdr 23
   safe_curl_run() { fail 'failed update fell back to installer'; }
   status=0
@@ -205,6 +210,32 @@ export PATH
   pass 'Observatory honors no terminal, SKIP_OBSERVATORY, and DRY_RUN'
 )
 
+# Reason Network installs only when missing and joins a team only from a terminal.
+(
+  bin_dir="$TEST_ROOT/reason-bin"
+  REASON_NETWORK_BIN_DIR="$bin_dir"
+  safe_curl_run() { printf 'install:%s\n' "$2" >> "$TEST_ROOT/calls"; stub_binary "$bin_dir/reason-network" reason-network "${TEAM_STATUS:-1}"; }
+  has_interactive_stdin() { return "${TTY_STATUS:-0}"; }
+  : > "$TEST_ROOT/calls"
+  TTY_STATUS=1 sync_reason_network 2> /dev/null
+  assert_calls $'install:reason-network\nreason-network:team --json'
+  : > "$TEST_ROOT/calls"
+  sync_reason_network 2> /dev/null
+  assert_calls $'reason-network:team --json\nreason-network:'
+  stub_binary "$bin_dir/reason-network" reason-network 0
+  : > "$TEST_ROOT/calls"
+  sync_reason_network 2> /dev/null
+  assert_calls 'reason-network:team --json'
+  : > "$TEST_ROOT/calls"
+  SKIP_REASON_NETWORK=1 sync_reason_network 2> /dev/null
+  assert_calls ''
+  rm -f "$bin_dir/reason-network"
+  : > "$TEST_ROOT/calls"
+  SKIP_TOOL_INSTALL=1 sync_reason_network 2> /dev/null
+  assert_calls ''
+  pass 'Reason Network installs once, skips joined teams, and honors opt-outs'
+)
+
 # Worker synchronization is skipped without a connection, respects opt-out,
 # and routes through run() so dry-run never starts a daemon.
 (
@@ -247,6 +278,7 @@ for entrypoint in setup update; do
   [[ -z "$(ls -A "$TEST_ROOT/dry-home")" ]] || fail "$entrypoint dry run changed HOME"
   grep -q 'pixi global sync' "$TEST_ROOT/$entrypoint.log" || fail "$entrypoint missed pixi sync"
   grep -q 'herdr.dev/install.sh' "$TEST_ROOT/$entrypoint.log" || fail "$entrypoint missed herdr"
+  grep -q 'reason-network/releases/latest/download/install.sh' "$TEST_ROOT/$entrypoint.log" || fail "$entrypoint missed Reason Network"
   pass "$entrypoint pixi dry run on mocked Linux"
 done
 

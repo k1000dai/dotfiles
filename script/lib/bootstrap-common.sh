@@ -534,6 +534,11 @@ sync_herdr() {
   # A symlink can point into a package manager's store; install a standalone
   # copy in that case instead of asking it to update the managed target.
   if [[ -x "${herdr_bin}" && ! -L "${herdr_bin}" ]]; then
+    # herdr refuses to replace itself from inside one of its own sessions.
+    if [[ "${HERDR_ENV:-}" == "1" ]]; then
+      log "Skipping herdr update inside a herdr session; run herdr update after detaching"
+      return 0
+    fi
     log "Updating herdr via herdr update"
     run "${herdr_bin}" update
   else
@@ -544,6 +549,45 @@ sync_herdr() {
 
 has_interactive_stdin() {
   [[ -t 0 ]]
+}
+
+sync_reason_network() {
+  local bin_dir="${REASON_NETWORK_BIN_DIR:-${HOME}/.local/bin}"
+  local reason_network="${bin_dir}/reason-network"
+
+  if [[ "${SKIP_REASON_NETWORK:-0}" == "1" ]]; then
+    log "Skipping Reason Network because SKIP_REASON_NETWORK=1"
+    return 0
+  fi
+
+  # Reason Network carries agent-to-agent messages and job replies; standalone
+  # installs update themselves, so the release installer only runs when missing.
+  ensure_path "${bin_dir}"
+  if [[ ! -x "${reason_network}" ]]; then
+    if [[ "${SKIP_TOOL_INSTALL}" == "1" ]]; then
+      log "Skipping Reason Network installer because SKIP_TOOL_INSTALL=1"
+      return 0
+    fi
+    log "Installing Reason Network via its release installer"
+    if ! REASON_NETWORK_BIN_DIR="${bin_dir}" REASON_NETWORK_NO_PROMPT=1 \
+      safe_curl_run 'https://github.com/reason-machines/reason-network/releases/latest/download/install.sh' 'reason-network'; then
+      log "Reason Network was not installed; agent messaging stays unavailable"
+      return 0
+    fi
+  fi
+
+  if [[ "${DRY_RUN}" != "1" ]] && "${reason_network}" team --json >/dev/null 2>&1; then
+    log "Reason Network team is already joined"
+    return 0
+  fi
+
+  if ! has_interactive_stdin; then
+    log "Reason Network has no team yet and no terminal is available; run: reason-network"
+    return 0
+  fi
+
+  log "Joining Reason Network; sign in or paste an invite (SKIP_REASON_NETWORK=1 skips this)"
+  run "${reason_network}" || log "Reason Network was not joined; run reason-network later"
 }
 
 sync_observatory() {
@@ -760,6 +804,7 @@ setup_with_pixi() {
   sync_claude_code
   sync_codex
   sync_herdr
+  sync_reason_network
   sync_observatory
   sync_observatory_worker
   log "Pixi-based setup completed. Restart the shell or run: source ~/.zshrc"
@@ -787,6 +832,7 @@ setup_with_nix() {
   sync_claude_code
   sync_codex
   sync_herdr
+  sync_reason_network
   sync_observatory
   sync_observatory_worker
   log "Nix-based setup completed."

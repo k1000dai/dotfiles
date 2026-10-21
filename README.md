@@ -177,15 +177,17 @@ AI CLI は公式が配布する standalone installer で `~/.local/bin` に導�
 | `claude` | `sync_claude_code` | `curl -fsSL https://claude.ai/install.sh \| bash` | `~/.local/bin/claude` |
 | `codex` | `sync_codex` | `curl -fsSL https://chatgpt.com/codex/install.sh \| sh` | `~/.local/bin/codex` |
 | `herdr` | `sync_herdr` | `curl -fsSL https://herdr.dev/install.sh \| sh` | `~/.local/bin/herdr` |
+| `reason-network` | `sync_reason_network` | GitHub release の `install.sh`（`REASON_NETWORK_NO_PROMPT=1`） | `~/.local/bin/reason-network` |
 
 - `@anthropic-ai/claude-code` / `@openai/codex` は npm 側では管理しません (npm 版が残っている場合は各関数が uninstall します)。`config/npm/npm-global-packages.txt` に戻さないでください。
 - `codex` / `herdr` は nix (`pkgs.codex` / `pkgs.herdr`) でも入れません。`home.nix` の該当行はコメントアウトしてあります。
 - codex installer は `~/.local/bin` が PATH に無いと shell profile (`~/.zprofile` など) に PATH ブロックを追記するため、`sync_codex` は installer 実行前に PATH を通します。また `CODEX_NON_INTERACTIVE=1` を渡してプロンプトを抑止します。
 - `claude` は `~/.local/bin/claude` があれば、そのバイナリの `update` を実行します。PATH 上の別のインストールは更新対象にしません。
 - `codex` は [公式の更新手順](https://learn.chatgpt.com/docs/codex/cli) と同じく installer を再実行します。
-- `herdr` は 2 回目以降、導入先のバイナリで `herdr update` を実行します。[公式の注意事項](https://herdr.dev/docs/install/#update) に従い、PATH 上の別バイナリや package manager を指す symlink は更新対象にせず、導入先が symlink の場合は standalone installer で置き換えます。
+- `herdr` は 2 回目以降、導入先のバイナリで `herdr update` を実行します。[公式の注意事項](https://herdr.dev/docs/install/#update) に従い、PATH 上の別バイナリや package manager を指す symlink は更新対象にせず、導入先が symlink の場合は standalone installer で置き換えます。herdr セッション内 (`HERDR_ENV=1`) では herdr が自己更新を拒否するため、更新だけスキップして続行します。
 - `HERDR_INSTALL_DIR` を指定した場合、インストール・更新の両方で同じディレクトリを使います。更新時も同じ値を指定してください。省略時は `~/.local/bin` です。更新に失敗した場合はエラーを返し、別チャネルへの再インストールは行いません。
-- `SKIP_TOOL_INSTALL=1` で 3 CLI のインストール・更新をスキップできます。
+- `reason-network` は未導入のときだけ installer を実行します。standalone 版は自身で自動更新します (`auto_update`)。導入後にチームが未参加で端末から実行している場合だけ `reason-network`（サインイン／招待リンクで参加し、Claude Code・Codex に MCP と hooks を登録）を起動します。端末がなければ案内だけ表示します。`SKIP_REASON_NETWORK=1` で省略できます。
+- `SKIP_TOOL_INSTALL=1` で各 CLI のインストール・更新をスキップできます。
 
 ### Agent 設定と hooks
 
@@ -246,6 +248,16 @@ observatory disconnect   # サーバーの端末キーを失効させ、ロー�
 
 紛失した端末は <https://agent-observatory-hub.peachy-pony-3346.chatgpt.site/connect> の接続済み端末一覧から取り消せます。30日の期限切れやサービスアクセス情報の変更で接続できなくなった場合は `connect` をやり直します。旧 `observatory login codex` / `login claude` も、現在はブラウザ承認への別名です。ChatGPT / dotsは既存のAgent Observatoryプラグインを引き続き利用します。
 
+#### 役割分担: Observatory と Reason Network
+
+| 役割 | 担当 |
+| --- | --- |
+| agent間通信・返信・セッションへの配信・小さなファイル転送 | [Reason Network](https://github.com/reason-machines/reason-network)（`list_team` / `send_message` / `check_inbox`） |
+| タスク依頼・実行キュー・キャンセル | Observatory（`submit_job` / `cancel_job`） |
+| PCスペック・ジョブ結果・エラーの可視化 | Observatory（`list_devices` / `list_jobs` / dashboard） |
+
+Reason Network は端末ごとのdaemonがiroh（P2P、E2E暗号化）で通信します。setup/updateが導入し、チーム参加時に各agentへMCPとhooksを登録します（上記 `sync_reason_network`）。Observatory の `relay_*` ではなく Reason Network で会話します。
+
 #### 常駐worker・端末情報・遠隔ジョブ
 
 新しい端末をジョブ実行可能にする手順:
@@ -283,6 +295,8 @@ observatory worker stop                       # 自動起動も停止
 
 `worker owners` で許可したGitHub ownerのrepoは、起動時に `ghq list` と `gh repo list`（archived除く）から `owner/name` として登録します。他人のrepoは、ghqにcloneしてあっても対象外です。未cloneのrepoはジョブ受信時に `ghq get` でcloneします（HTTPS、認証はgit credential helper／ghに依存し、対話プロンプトは出しません）。新しく作ったrepoは `worker install` で再起動すると登録されます。
 
+repoを指定しない・不要なジョブは予約名 `work` を `repo` に指定します（workerは常に `work` を登録し、`worker allow work` は使えません）。`~/work/<job-id>` を作って Git の初期コミットを置き、そこで実行します。許可ownerのrepoでも clone／fetch に失敗した場合は同じく `~/work/<job-id>` へ切り替え、結果に `Repository unavailable` と残します。許可されていないrepoは従来どおり拒否します。
+
 ChatGPT / dots / 接続済みCLIからMCP `list_devices` で端末IDと許可リポジトリを確認し、次のように依頼します。
 
 ```json
@@ -295,6 +309,15 @@ ChatGPT / dots / 接続済みCLIからMCP `list_devices` で端末IDと許可リ
   "timeoutSeconds": 600
 }
 ```
+
+Reason Network に参加済みの端末では、workerが `<person>/observatory-worker@<machine>` として待ち受けます（起動ログに表示、`list_team` にも出ます）。promptに次の行を入れると連携します。
+
+| promptの行 | 動作 |
+| --- | --- |
+| `Observatory-Reply-To: <person>/<session>[@machine]` | 終了状態と結果を、そのセッションへ worker から送ります。`work` ジョブでは変更・追加されたテキストファイル（最大10件、各256KB・計512KB、隠しファイル除く）も添付します。グループ宛先（`*` / `repo:` / `person/*`）は受け付けません |
+| `Observatory-Files: <tag>` | 事前に `send_message` で worker へ本文 `observatory-files: <tag>` と `files` を送っておくと、`work` ジョブでは `~/work/<job-id>/` に、repoジョブでは worktree の `observatory-files/` に配置します。未着なら最大5分待ち、届かなければ失敗にします |
+
+ファイルを受け付けるのは worker と同じ person のセッションからだけです。worker はメッセージを `reason-network listen` で受け取り、受信ファイルを `${XDG_STATE_HOME:-~/.local/state}/observatory/files/<tag>` に退避してから使います。ジョブ内のagentにはReason NetworkのMCPを渡しません（無人実行への割り込み・再帰的な依頼を避けるため）。
 
 上記は `submit_job` の引数です。同じ `requestKey` の再送は同じジョブを返します。`list_jobs` で状態・結果、`cancel_job(id)` で中止できます。`parent` は任意の親ジョブIDで追跡に使います。依存順序の自動実行や親エージェントの自動再開はまだ行いません。端末選択は明示指定です。
 
