@@ -130,9 +130,16 @@ def main():
     sub.add_parser("disconnect", help="Revoke this connection and delete local credentials")
     command = sub.add_parser("login", help="Compatibility alias for browser pairing")
     command.add_argument("client", choices=["codex", "claude"])
+    command = sub.add_parser("worker", help="Manage the resident worker")
+    command.add_argument("worker_args", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     try:
-        if args.action == "setup":
+        if args.action == "worker":
+            node = shutil.which("node")
+            if not node:
+                raise RuntimeError("Node.js is required.")
+            return subprocess.call([node, str(BRIDGE.with_name("observatory-worker.mjs")), *args.worker_args])
+        elif args.action == "setup":
             setup(args.client)
         elif args.action == "disable":
             marker().unlink(missing_ok=True)
@@ -156,3 +163,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+

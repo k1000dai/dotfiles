@@ -205,6 +205,26 @@ export PATH
   pass 'Observatory honors no terminal, SKIP_OBSERVATORY, and DRY_RUN'
 )
 
+# Worker synchronization is skipped without a connection, respects opt-out,
+# and routes through run() so dry-run never starts a daemon.
+(
+  node() { printf 'node:%s\n' "$2" >> "$TEST_ROOT/calls"; return "${CHECK_STATUS:-0}"; }
+  : > "$TEST_ROOT/calls"
+  SKIP_OBSERVATORY_WORKER=1 sync_observatory_worker
+  assert_calls ''
+  : > "$TEST_ROOT/calls"
+  CHECK_STATUS=1 sync_observatory_worker
+  assert_calls 'node:check'
+  : > "$TEST_ROOT/calls"
+  sync_observatory_worker
+  assert_calls $'node:check\nnode:sync'
+  : > "$TEST_ROOT/calls"
+  DRY_RUN=1 sync_observatory_worker > "$TEST_ROOT/dry-worker"
+  assert_calls 'node:check'
+  grep -q 'observatory-worker.mjs sync' "$TEST_ROOT/dry-worker" || fail 'worker missing from dry run'
+  pass 'worker sync honors authentication, opt-out, and dry-run'
+)
+
 # Run both public entrypoints with a mocked Linux platform and inert tool stubs.
 # DRY_RUN must prevent all commands below from actually running.
 uname() { printf 'Linux\n'; }
@@ -236,3 +256,4 @@ done
   [[ "$(resolve_backend update)" == pixi ]] || fail 'update did not choose pixi'
   pass 'update never prompts to install nix'
 )
+

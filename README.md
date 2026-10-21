@@ -246,6 +246,47 @@ observatory disconnect   # サーバーの端末キーを失効させ、ロー�
 
 紛失した端末は <https://agent-observatory-hub.peachy-pony-3346.chatgpt.site/connect> の接続済み端末一覧から取り消せます。30日の期限切れやサービスアクセス情報の変更で接続できなくなった場合は `connect` をやり直します。旧 `observatory login codex` / `login claude` も、現在はブラウザ承認への別名です。ChatGPT / dotsは既存のAgent Observatoryプラグインを引き続き利用します。
 
+#### 常駐worker・端末情報・遠隔ジョブ
+
+接続済みの端末では `setup.sh` / `update.sh` が常駐workerを同期します。Linuxはsystemd user service、macOSはログインユーザーのlaunchd agentを使います。最初は**端末情報の報告のみ**で、ジョブは実行しません。`SKIP_OBSERVATORY_WORKER=1` で同期を省略できます。`observatory worker stop` で停止すると、その後のupdateでも停止状態を維持します。再開は `worker install` です。
+
+```bash
+observatory worker init                      # 永続端末IDを作成。既存設定は保持
+observatory worker allow dotfiles ~/.dotfiles # ローカルのGit rootを別名で許可
+observatory worker agents codex claude        # 使用するCLIを明示的に許可
+observatory worker install                    # 起動設定を反映して開始／再起動
+observatory worker status
+observatory worker logs
+observatory worker stop                       # 自動起動も停止
+```
+
+設定は `${XDG_CONFIG_HOME:-~/.config}/observatory/worker.json`。端末IDは再起動・再接続でも保持し、ホスト名・OS・CPU・メモリ・GPU名・取得可能なVRAMを送ります。NVIDIAはnvidia-smi、macOSはsystem_profiler、その他Linux GPUはlspciを利用します。未導入・非対応時はGPU取得なしとなり、Appleの共有メモリをVRAMとして捏造しません。絶対リポジトリパスはローカルだけに保存し、サーバーには別名だけ送ります。
+
+20秒ごとにheartbeatを送り、90秒報告がなければdashboardはofflineになります。idle／受付可能はworkerの枠が空いている意味で、人間の端末使用やGPU負荷の判定ではありません。端末ごとに同時実行は1件。仕様を更新したら `worker install` で再起動してください。Linuxでログアウト後も動かす場合は管理者がuser lingeringを設定する必要があります。systemdのないSSHサーバーでは `observatory worker run` を既存のsupervisorで管理してください。macOSのLaunchAgentはユーザーログイン中の実行です。
+
+ChatGPT / dots / 接続済みCLIからMCP `list_devices` で端末IDと許可リポジトリを確認し、次のように依頼します。
+
+```json
+{
+  "deviceId": "list_devicesで取得した端末ID",
+  "requestKey": "dotfiles-readme-review-001",
+  "repo": "dotfiles",
+  "agent": "codex",
+  "prompt": "READMEのセットアップ手順をレビューし、必要な修正を行ってください。",
+  "timeoutSeconds": 600
+}
+```
+
+上記は `submit_job` の引数です。同じ `requestKey` の再送は同じジョブを返します。`list_jobs` で状態・結果、`cancel_job(id)` で中止できます。`parent` は任意の親ジョブIDで追跡に使います。依存順序の自動実行や親エージェントの自動再開はまだ行いません。端末選択は明示指定です。
+
+workerは `POST /api/worker` の登録・heartbeat・claim・completeを使います。認証は既存の端末キーとSitesサービスアクセス情報で、送信先は固定origin、リダイレクトは禁止です。外部からの待受ポートは開きません。二重取得はサーバーの原子的更新で防ぎ、実行中はleaseを延長します。キャンセルは次のheartbeatで停止、通信断は60秒以内にプロセスグループを停止します。実行権切れはfailedにし、自動再実行しません。
+
+ジョブは許可repoのHEADから `observatory/<job-id>` ブランチと専用worktreeを作ります。成果物は `${XDG_STATE_HOME:-~/.local/state}/observatory/worktrees/<job-id>` に残し、自動push・merge・削除はしません。サーバーへは終了状態とブランチ名のみを返し、会話・stdout・コード・diffはアップロードしません。完了はCLIの正常終了を意味し、レビュー済み・テスト合格を保証しません。
+
+Codexは `exec --sandbox workspace-write`、承認要求なし・ユーザー設定なしで起動します。Claudeは `--restricted` のファイル操作のみで、Bash・MCPを使わず、1件あたり$5上限を指定します（対応する最新版CLIが必要）。CLIのログイン・モデル利用枠は各端末側に必要です。Codexにはこの実装で金額上限を設けていないため、ジョブの時間上限（30〜3600秒）で制限します。一般の作業セッションは従来どおりMCPを利用できます。
+
+workerは同じOSユーザーの権限で動きます。信頼する自分のリポジトリと依頼だけを許可してください。worktreeはVM／コンテナによる隔離ではありません。
+
 #### タスクの報告
 
 `setup` は `${XDG_CONFIG_HOME:-~/.config}/observatory/enabled` を作成します。共通指示はこのマーカーと接続済みMCPを確認し、次を報告します。
@@ -258,7 +299,7 @@ observatory disconnect   # サーバーの端末キーを失効させ、ロー�
 | 作業と必要な確認が完了 | `update_task(id, "done")` |
 | 子エージェントへ委譲 | 親が `parent=<親ID>` で登録し、返された子IDを渡す |
 
-これは協調的な報告方式です。CLIプロセスや全tool call・クラッシュの自動監視、遠隔コマンド実行・停止は行いません。送信するのは機密性を確認した短いタスク情報だけで、会話全文・コード・diff・秘密情報・絶対パスは含めません。認証障害は一度報告し、本来の作業は継続します。既存のherdr / pre-commit hooksは変更しません。
+これは協調的な報告方式です。通常のCLIセッションの全tool call・クラッシュの自動監視は行いません。上記workerへ明示的に依頼したジョブのみ、実行と停止を管理します。送信するのは機密性を確認した短いタスク情報だけで、会話全文・コード・diff・秘密情報・絶対パスは含めません。認証障害は一度報告し、本来の作業は継続します。既存のherdr / pre-commit hooksは変更しません。
 
 サーバーは所有者限定のSitesアクセスを維持し、中継専用キーでも認証します。キーのハッシュと所有者を保存し、期限切れ・取り消し済みキーを拒否します。タスク操作はキー所有者に限定します。ダッシュボードは表示専用です。HTTP MCP URLへの直接OAuth、OIDCメタデータの上書き、DCR、サイトの一般公開はこの接続に不要です。
 
@@ -282,6 +323,7 @@ uv tool install huggingface_hub
 
 | パス | 内容 | リンク先 / 反映方法 |
 | --- | --- | --- |
+| `script/observatory-worker.mjs` | 端末情報・heartbeat・ジョブ実行・常駐設定 | `observatory worker` / setup・update経由 |
 | `script/observatory.py` | Observatory の MCP 登録・ログイン補助・報告の有効化 | `~/.local/bin/observatory` (nix / pixi) |
 | `script/setup.sh` / `script/update.sh` | 統合 bootstrap / 更新反映 | - |
 | `flake.nix`, `home*.nix` | Nix / Home Manager 設定 | `home-manager switch --flake` |
@@ -314,7 +356,7 @@ pre-commit run --all-files
 bash script/tests/test-bootstrap.sh
 bash script/tests/test-agent-hooks.sh
 python3 script/tests/test-observatory.py
-node --test script/tests/test-observatory-bridge.mjs
+node --test script/tests/test-observatory-bridge.mjs script/tests/test-observatory-worker.mjs
 ```
 
 - `nixfmt` (nix ファイル)、`shellcheck` (shell script)、標準 hooks (行末空白・EOF 改行など)
@@ -334,3 +376,4 @@ Nix / Home Manager の設定ファイルは引き続き repo に含めていま�
 - `home-linux.nix`
 
 `nix` が使える環境ではこちらが第一経路です。macOS は `multi-user nix` を優先し、Linux の HPC や非 sudo 環境では `pixi` backend を明示的に使うか、`nix` install をスキップして fallback させます。
+

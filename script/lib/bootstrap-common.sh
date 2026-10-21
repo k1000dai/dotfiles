@@ -583,6 +583,17 @@ sync_observatory() {
     || log "Observatory agent registration failed; run observatory setup after resolving it"
 }
 
+sync_observatory_worker() {
+  if [[ "${SKIP_OBSERVATORY:-0}" == "1" || "${SKIP_OBSERVATORY_WORKER:-0}" == "1" ]]; then
+    return 0
+  fi
+  if command -v node >/dev/null 2>&1 && node "${REPO_ROOT}/script/observatory-mcp.mjs" check >/dev/null 2>&1; then
+    log "Syncing Observatory resident worker (telemetry only until repositories/agents are allowed)"
+    run node "${REPO_ROOT}/script/observatory-worker.mjs" sync \
+      || log "Worker service unavailable; run observatory worker install or use worker run with your supervisor"
+  fi
+}
+
 confirm_install_nix() {
   local answer
 
@@ -745,6 +756,7 @@ setup_with_pixi() {
   sync_codex
   sync_herdr
   sync_observatory
+  sync_observatory_worker
   log "Pixi-based setup completed. Restart the shell or run: source ~/.zshrc"
 }
 
@@ -771,6 +783,7 @@ setup_with_nix() {
   sync_codex
   sync_herdr
   sync_observatory
+  sync_observatory_worker
   log "Nix-based setup completed."
 }
 
@@ -788,3 +801,4 @@ update_with_nix() {
   nix_cmd flake update nixpkgs --flake "${REPO_ROOT}"
   setup_with_nix
 }
+
