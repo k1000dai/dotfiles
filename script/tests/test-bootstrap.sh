@@ -142,6 +142,65 @@ export PATH
 )
 
 (
+  safe_curl_run() { printf 'installer:%s:%s\n' "$2" "${*:3}" >> "$TEST_ROOT/calls"; }
+  unset REASON_NETWORK_JOIN_URL
+  : > "$TEST_ROOT/calls"
+  sync_reason_network
+  assert_calls ''
+  pass 'reason network is skipped without a join link'
+
+  stdin_is_terminal() { return 0; }
+  pasted='https://example.invalid/join/#pasted'
+  : > "$TEST_ROOT/calls"
+  SCRIPT_NAME=setup.sh sync_reason_network 2> /dev/null <<< "$pasted"
+  assert_calls "installer:reason:network join $pasted"
+  for answer in '' 'not-a-link'; do
+    : > "$TEST_ROOT/calls"
+    SCRIPT_NAME=setup.sh sync_reason_network 2> /dev/null <<< "$answer"
+    assert_calls ''
+  done
+  : > "$TEST_ROOT/calls"
+  SCRIPT_NAME=update.sh sync_reason_network < /dev/null
+  assert_calls ''
+  : > "$TEST_ROOT/calls"
+  SCRIPT_NAME=setup.sh DRY_RUN=1 sync_reason_network < /dev/null
+  assert_calls ''
+  pass 'setup prompts for a join link; update and dry run never prompt'
+
+  REASON_NETWORK_JOIN_URL='https://example.invalid/join/#secret'
+  : > "$TEST_ROOT/calls"
+  sync_reason_network
+  assert_calls "installer:reason:network join $REASON_NETWORK_JOIN_URL"
+  pass 'reason network installs and joins with the link'
+
+  reason_bin="$HOME/.local/bin/reason"
+  mkdir -p "$(dirname "$reason_bin")"
+  cat > "$reason_bin" <<'STUB'
+#!/bin/bash
+printf 'reason:%s\n' "$*" >> "${TEST_ROOT}/calls"
+[[ "$*" == 'network who --json' && -n "${REASON_JOINED:-}" ]] && printf '{"team":"t"}\n'
+exit 0
+STUB
+  chmod +x "$reason_bin"
+  : > "$TEST_ROOT/calls"
+  REASON_JOINED=1 sync_reason_network
+  assert_calls 'reason:network who --json'
+  : > "$TEST_ROOT/calls"
+  sync_reason_network
+  assert_calls "reason:network who --json
+reason:network join $REASON_NETWORK_JOIN_URL"
+  : > "$TEST_ROOT/calls"
+  REASON_NETWORK_JOIN_URL='' sync_reason_network
+  assert_calls ''
+  pass 'installed reason joins only when off a network'
+
+  : > "$TEST_ROOT/calls"
+  SKIP_TOOL_INSTALL=1 sync_reason_network
+  assert_calls ''
+  pass 'reason network honors SKIP_TOOL_INSTALL'
+)
+
+(
   current_os() { printf 'Linux\n'; }
   TIMESTAMP=regression
   mkdir -p "$HOME/.claude/hooks" "$HOME/.agents/skills/keep-me" "$HOME/.config/herdr"

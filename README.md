@@ -177,6 +177,7 @@ AI CLI は公式が配布する standalone installer で `~/.local/bin` に導�
 | `claude` | `sync_claude_code` | `curl -fsSL https://claude.ai/install.sh \| bash` | `~/.local/bin/claude` |
 | `codex` | `sync_codex` | `curl -fsSL https://chatgpt.com/codex/install.sh \| sh` | `~/.local/bin/codex` |
 | `herdr` | `sync_herdr` | `curl -fsSL https://herdr.dev/install.sh \| sh` | `~/.local/bin/herdr` |
+| `reason` | `sync_reason_network` | `curl -fsSL https://reasonmachines.com/install.sh \| bash -s -- network join '<link>'` | `~/.local/bin/reason` |
 
 - `@anthropic-ai/claude-code` / `@openai/codex` は npm 側では管理しません (npm 版が残っている場合は各関数が uninstall します)。`config/npm/npm-global-packages.txt` に戻さないでください。
 - `codex` / `herdr` は nix (`pkgs.codex` / `pkgs.herdr`) でも入れません。`home.nix` の該当行はコメントアウトしてあります。
@@ -185,7 +186,14 @@ AI CLI は公式が配布する standalone installer で `~/.local/bin` に導�
 - `codex` は [公式の更新手順](https://learn.chatgpt.com/docs/codex/cli) と同じく installer を再実行します。
 - `herdr` は 2 回目以降、導入先のバイナリで `herdr update` を実行します。[公式の注意事項](https://herdr.dev/docs/install/#update) に従い、PATH 上の別バイナリや package manager を指す symlink は更新対象にせず、導入先が symlink の場合は standalone installer で置き換えます。
 - `HERDR_INSTALL_DIR` を指定した場合、インストール・更新の両方で同じディレクトリを使います。更新時も同じ値を指定してください。省略時は `~/.local/bin` です。更新に失敗した場合はエラーを返し、別チャネルへの再インストールは行いません。
-- `SKIP_TOOL_INSTALL=1` で 3 CLI のインストール・更新をスキップできます。
+- `reason` (Reason Network) の招待リンクは秘密情報で、この repo は public なのでコミットしません。未導入の場合、`setup.sh` を端末から実行すると join link の貼り付けを求めます (Enter でスキップ)。link を受け取ったときだけ installer を実行し、CLI の導入と `reason network join` を行います。`update.sh`、`DRY_RUN=1`、非対話実行では確認しません。事前に渡すこともできます。
+
+  ```bash
+  REASON_NETWORK_JOIN_URL='https://reasonmachines.com/network/join/#rn1-...' ./script/setup.sh
+  ```
+
+- `reason` 導入済みの場合、`network who --json` で team を確認し、未参加のときだけ `reason network join` を実行します。CLI は Reason Network の background process が 1 日 1 回ほど更新します。`reason update` は desktop components (macOS で約 325 MB) も導入するため使いません。
+- `SKIP_TOOL_INSTALL=1` で 4 CLI のインストール・更新をスキップできます。
 
 ### Agent 設定と hooks
 

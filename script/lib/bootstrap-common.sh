@@ -541,6 +541,68 @@ sync_herdr() {
   fi
 }
 
+stdin_is_terminal() {
+  [[ -t 0 ]]
+}
+
+# Only setup asks: update and non-interactive runs must not stop for input.
+prompt_reason_network_join_url() {
+  local answer
+
+  if [[ "${SCRIPT_NAME:-}" != "setup.sh" || "${DRY_RUN}" == "1" ]] || ! stdin_is_terminal; then
+    return 0
+  fi
+
+  printf 'Reason Network join link (paste it, or press Enter to skip): ' >&2
+  read -r answer || return 0
+  case "${answer}" in
+    "") ;;
+    https://*) printf '%s\n' "${answer}" ;;
+    *) log "Ignoring the Reason Network join link: it must start with https://" ;;
+  esac
+}
+
+sync_reason_network() {
+  local install_dir="${HOME}/.local/bin"
+  local reason_bin="${install_dir}/reason"
+  # The join link carries the network's invite secret and this repository is
+  # public, so it comes from the environment or a setup prompt, never the repo.
+  local join_url="${REASON_NETWORK_JOIN_URL:-}"
+
+  if [[ "${SKIP_TOOL_INSTALL}" == "1" ]]; then
+    log "Skipping reason network installer because SKIP_TOOL_INSTALL=1"
+    return 0
+  fi
+
+  # The installer appends a PATH line to ~/.zshrc or ~/.bashrc when its
+  # directory is missing from PATH; both are managed by this repository.
+  ensure_path "${install_dir}"
+
+  # `reason` links into the managed runtime under Application Support (macOS),
+  # so a symlink here is still the installer's own launcher. Reason Network's
+  # background process updates the CLI about once a day; `reason update` is
+  # avoided because it also installs the desktop components.
+  if [[ -x "${reason_bin}" ]]; then
+    if [[ -z "${join_url}" ]]; then
+      log "reason is installed and kept up to date by Reason Network"
+    elif "${reason_bin}" network who --json < /dev/null 2> /dev/null | grep -q '"team"'; then
+      log "reason is already on a Reason Network team"
+    else
+      log "Joining Reason Network via reason network join"
+      run "${reason_bin}" network join "${join_url}"
+    fi
+    return
+  fi
+
+  [[ -n "${join_url}" ]] || join_url="$(prompt_reason_network_join_url)"
+  if [[ -n "${join_url}" ]]; then
+    log "Installing reason CLI and joining Reason Network via official installer"
+    safe_curl_run 'https://reasonmachines.com/install.sh' 'reason' network join "${join_url}"
+  else
+    log "Skipping reason network: paste a join link in setup or set REASON_NETWORK_JOIN_URL"
+  fi
+}
+
 confirm_install_nix() {
   local answer
 
@@ -702,6 +764,7 @@ setup_with_pixi() {
   sync_claude_code
   sync_codex
   sync_herdr
+  sync_reason_network
   log "Pixi-based setup completed. Restart the shell or run: source ~/.zshrc"
 }
 
@@ -727,6 +790,7 @@ setup_with_nix() {
   sync_claude_code
   sync_codex
   sync_herdr
+  sync_reason_network
   log "Nix-based setup completed."
 }
 
