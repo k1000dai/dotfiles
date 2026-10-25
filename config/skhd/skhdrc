@@ -14,12 +14,13 @@
 # focus monitor
 # ctrl + alt - z  : yabai -m display --focus prev
 # ctrl + alt - 3  : yabai -m display --focus 3
- alt - u : yabai -m display --focus next
- alt - i : yabai -m display --focus prev
+ alt - u : ~/.config/skhd/focus-display next
+ alt - i : ~/.config/skhd/focus-display prev
 
 # send window to monitor and follow focus
- shift + alt - u  : yabai -m window --display next; yabai -m display --focus next
- shift + alt - i  : yabai -m window --display 1; yabai -m display --focus 1
+# focus the moved window itself; `display --focus` may land on an overlay (see focus-display)
+ shift + alt - u  : id=$(yabai -m query --windows --window | jq '.id') && yabai -m window --display next && yabai -m window --focus "$id"
+ shift + alt - i  : id=$(yabai -m query --windows --window | jq '.id') && yabai -m window --display 1 && yabai -m window --focus "$id"
 
 # toggle window zoom
 # alt - d : yabai -m window --toggle zoom-parent

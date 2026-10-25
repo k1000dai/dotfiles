@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+
+# Focus the next/prev display via its topmost normal-layer window.
+# `yabai -m display --focus` picks the topmost window, which may be an
+# unfocusable overlay (e.g. ChatGPT's full-screen AXDialog on layer "above");
+# activating it hands focus to the app's main window on another display.
+sel="${1:-next}"
+display=$(yabai -m query --displays --display "$sel" | jq -r '.index')
+[ -n "$display" ] || exit 1
+window=$(yabai -m query --windows --display "$display" |
+  jq -r 'map(select(.layer == "normal" and ."is-visible" and (."is-minimized" | not)))[0].id // empty')
+
+if [ -n "$window" ]; then
+  yabai -m window --focus "$window"
+else
+  yabai -m display --focus "$display"
+fi
