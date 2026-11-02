@@ -202,6 +202,7 @@ macOS / Linux の Home Manager と Linux pixi で同じ設定をリンクしま�
 - 共通指示は `config/ai-agents/INSTRUCTIONS.md`。Claude Code と Codex の両方で repo の編集を即反映します。
 - Claude Code の skills は `~/.claude/skills` にリンクします。アプリが生成する `skills/synced/` は Git の管理対象外です。
 - 共通の `sanitize-artifacts` skill は Codex の [ユーザー用 skills ディレクトリ](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills) `~/.agents/skills/sanitize-artifacts` にも個別リンクします。既存の他の skills はそのまま使えます。
+- Codex の既定設定 `config/codex/config.toml` (model `gpt-6-astra`、reasoning `xhigh`、service tier `fast`、permission は auto: `on-request` + `workspace-write` + auto-review) は、`~/.codex/config.toml` が無いときだけ setup / update がコピーします。Codex は project trust や desktop の状態を同じファイルに書き込むので、リンクはせず既存ファイルも上書きしません。
 - hooks は `~/.claude/hooks/` にファイル単位でリンクします。herdr の生成管理 hook と独自の `pre-commit-stop.sh` を分けています。
 - Stop hook はイベントの `cwd` から Git root を解決し、`.pre-commit-config.yaml` と変更がある場合だけ検査します。サブディレクトリからの起動にも対応し、hook による継続時の再帰実行を避けます。
 
@@ -236,6 +237,7 @@ uv tool install huggingface_hub
 | `config/claude/` | Claude Code 設定と hooks | `~/.claude/settings.json`, `~/.claude/hooks/*.sh` (ファイル単位の out-of-store link) |
 | `config/ai-agents/` | AI agent 共通指示 (`INSTRUCTIONS.md`) と skills | `~/.claude/CLAUDE.md`, `~/.claude/skills`, `~/.agents/skills/sanitize-artifacts` (out-of-store link) |
 | `config/codex/AGENTS.md` | 共通指示 (`config/ai-agents/INSTRUCTIONS.md`) への symlink | `~/.codex/AGENTS.md` (out-of-store link で編集即反映) |
+| `config/codex/config.toml` | Codex の既定設定 (model / reasoning / service tier / permission) | `~/.codex/config.toml` (存在しないときだけコピー。以後は Codex が書き換えるローカルファイル) |
 | `config/codex/pets/` | Codex desktop の custom pet (`<id>/pet.json` + `spritesheet.webp`) | `~/.codex/pets` (out-of-store link。Codex で作成/再生成した pet はそのまま repo に入る。どの pet を使うかは `~/.codex/config.toml` の `[desktop] selected-avatar-id = "custom:<id>"` で、こちらは未管理) |
 | `config/git/shared.gitconfig` | Git 共通設定 (user / alias / ghq / lfs) | nix: `programs.git.includes` / pixi: root `.gitconfig` から include |
 | `.gitconfig` | pixi backend 用エントリ (共通設定を include + credential) | `~/.gitconfig` (pixi のみ) |

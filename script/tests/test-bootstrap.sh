@@ -227,6 +227,16 @@ reason:network join $REASON_NETWORK_JOIN_URL"
   pass 'Linux links preserve backups, runtime state, and unmanaged skills on rerun'
 )
 
+(
+  seed_codex_config > /dev/null 2>&1
+  cmp "$REPO_ROOT/config/codex/config.toml" "$HOME/.codex/config.toml"
+  [[ ! -L "$HOME/.codex/config.toml" ]] || fail 'codex config linked instead of copied'
+  printf 'model = "local"\n' > "$HOME/.codex/config.toml"
+  seed_codex_config > /dev/null 2>&1
+  [[ "$(cat "$HOME/.codex/config.toml")" == 'model = "local"' ]] || fail 'existing codex config replaced'
+  pass 'codex config is seeded once and never overwritten'
+)
+
 # Run both public entrypoints with a mocked Linux platform and inert tool stubs.
 # DRY_RUN must prevent all commands below from actually running.
 uname() { printf 'Linux\n'; }

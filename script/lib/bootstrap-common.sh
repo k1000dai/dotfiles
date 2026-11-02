@@ -318,6 +318,28 @@ link_path() {
   run ln -s "${source_path}" "${target_path}"
 }
 
+# Copy a default config into place only when the target is absent. Used for
+# files the tool itself rewrites, so later local changes are never replaced.
+seed_path() {
+  local source_path="$1"
+  local target_path="$2"
+
+  if [[ -e "${target_path}" || -L "${target_path}" ]]; then
+    log "Keeping existing ${target_path}"
+    return 0
+  fi
+
+  log "Seeding ${target_path} from ${source_path}"
+  run mkdir -p "$(dirname "${target_path}")"
+  run install -m 600 "${source_path}" "${target_path}"
+}
+
+# Codex stores project trust, desktop state, and hook hashes in config.toml,
+# so the repository only provides its initial defaults.
+seed_codex_config() {
+  seed_path "${REPO_ROOT}/config/codex/config.toml" "${HOME}/.codex/config.toml"
+}
+
 setup_links() {
   local manifest_source
   manifest_source="$(pixi_manifest_source)"
@@ -758,6 +780,7 @@ setup_with_pixi() {
   fi
 
   setup_links
+  seed_codex_config
   sync_pixi_global
   sync_neovim_plugins
   sync_npm_global_packages
@@ -786,6 +809,7 @@ setup_with_nix() {
   fi
 
   home_manager_cmd switch --flake "${REPO_ROOT}#${target}"
+  seed_codex_config
   sync_npm_global_packages
   sync_claude_code
   sync_codex

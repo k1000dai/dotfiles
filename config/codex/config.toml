@@ -1,0 +1,15 @@
+# Default Codex config, copied to ~/.codex/config.toml only when that file is
+# missing (seed_codex_config in script/lib/bootstrap-common.sh). Codex rewrites
+# the live file with project trust, desktop state, and hook hashes, so it is
+# not linked back into this repository.
+
+model = "gpt-6-astra"
+model_reasoning_effort = "xhigh"
+plan_mode_reasoning_effort = "xhigh"
+service_tier = "fast"
+
+# Auto permissions: sandboxed workspace writes, with escalation requests
+# reviewed by Codex's auto-reviewer instead of prompting.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+approvals_reviewer = "auto_review"
