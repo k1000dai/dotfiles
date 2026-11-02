@@ -137,6 +137,19 @@ function ghq-fzf() {
 
 zle -N ghq-fzf
 
+# tailscale のアカウント切り替え。引数なしなら fzf で選ぶ (例: tsw, tsw airoa.org, tsw --list)
+tsw() {
+  (( $+commands[tailscale] )) || { echo "tsw: tailscale not found" >&2; return 1; }
+  if (( $# )); then
+    tailscale switch "$@"
+    return
+  fi
+
+  local selected
+  selected="$(tailscale switch --list | fzf --header-lines=1 --prompt='tailnet> ')" || return 0
+  tailscale switch "${selected%% *}"
+}
+
 
 bindkey -e
 bindkey '^g' ghq-fzf
