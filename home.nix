@@ -1,4 +1,9 @@
-{ pkgs, config, ... }:
+{
+  pkgs,
+  config,
+  lib,
+  ...
+}:
 
 {
   home.username = "kohei";
@@ -100,8 +105,6 @@
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/claude/CLAUDE.md";
     ".claude/skills".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/ai-agents/skills";
-    ".claude/settings.json".source =
-      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/claude/settings.json";
     # File-level links leave room for integration-managed and local hooks.
     ".claude/hooks/herdr-agent-state.sh".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/claude/hooks/herdr-agent-state.sh";
@@ -112,6 +115,21 @@
     ".zsh/git-prompt.sh".source = ./.zsh/git-prompt.sh;
     ".sbuildrc".source = ./sbuildrc;
   };
+
+  # Migrate the old settings symlink before linkGeneration removes it, keeping
+  # a snapshot backup. Claude can then persist local state without editing Git.
+  home.activation.syncClaudeSettings =
+    lib.hm.dag.entryBetween [ "linkGeneration" ] [ "writeBoundary" ]
+      ''
+        run env PATH="${
+          lib.makeBinPath [
+            pkgs.jq
+            pkgs.coreutils
+          ]
+        }:$PATH" \
+          ${pkgs.bash}/bin/bash ${./script/lib/sync-claude-settings.sh} \
+          ${./config/claude/settings.json} "$HOME/.claude/settings.json"
+      '';
 
   xdg.configFile = {
     "nvim".source = ./config/nvim;

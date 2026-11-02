@@ -77,6 +77,23 @@ ensure_path() {
   esac
 }
 
+# Applying configuration keeps any usable installation, including one supplied
+# by another package manager. Only update migrates or upgrades existing tools.
+keep_installed_tool() {
+  local mode="$1"
+  local command_name="$2"
+  local managed_path="$3"
+
+  if [[ "${mode}" == "setup" ]] \
+    && { [[ -x "${managed_path}" ]] || command -v "${command_name}" >/dev/null 2>&1; }
+  then
+    log "Keeping installed ${command_name}; use update.sh to update it"
+    return 0
+  fi
+
+  return 1
+}
+
 current_os() {
   uname -s
 }
@@ -340,6 +357,11 @@ seed_codex_config() {
   seed_path "${REPO_ROOT}/config/codex/config.toml" "${HOME}/.codex/config.toml"
 }
 
+sync_claude_settings() {
+  TIMESTAMP="${TIMESTAMP}" run bash "${SCRIPT_LIB_DIR}/sync-claude-settings.sh" \
+    "${REPO_ROOT}/config/claude/settings.json" "${HOME}/.claude/settings.json"
+}
+
 setup_links() {
   local manifest_source
   manifest_source="$(pixi_manifest_source)"
@@ -353,7 +375,6 @@ setup_links() {
   link_path "${REPO_ROOT}/config/codex/AGENTS.md" "${HOME}/.codex/AGENTS.md"
   link_path "${REPO_ROOT}/config/codex/pets" "${HOME}/.codex/pets"
   link_path "${REPO_ROOT}/config/claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
-  link_path "${REPO_ROOT}/config/claude/settings.json" "${HOME}/.claude/settings.json"
   link_path "${REPO_ROOT}/config/ai-agents/skills" "${HOME}/.claude/skills"
   link_path "${REPO_ROOT}/config/ai-agents/skills/sanitize-artifacts" "${HOME}/.agents/skills/sanitize-artifacts"
   link_path "${REPO_ROOT}/config/claude/hooks/herdr-agent-state.sh" "${HOME}/.claude/hooks/herdr-agent-state.sh"
@@ -392,6 +413,9 @@ sync_pixi_global() {
 }
 
 sync_neovim_plugins() {
+  local mode="${1:-setup}"
+  local operation=install
+
   if [[ "${SKIP_PIXI_SYNC}" == "1" ]]; then
     log "Skipping Neovim plugin sync because SKIP_PIXI_SYNC=1"
     return 0
@@ -402,13 +426,17 @@ sync_neovim_plugins() {
     return 0
   fi
 
-  log "Syncing Neovim plugins with lazy.nvim"
-  if ! run nvim --headless "+Lazy! sync" +qa; then
+  if [[ "${mode}" == "update" ]]; then
+    operation=sync
+  fi
+  log "Applying Neovim plugins with lazy.nvim (${operation})"
+  if ! run nvim --headless "+Lazy! ${operation}" +qa; then
     log "Neovim plugin sync failed; continuing without blocking setup"
   fi
 }
 
 sync_npm_global_packages() {
+  local mode="${1:-setup}"
   local prefix
   local package_spec
   local packages=()
@@ -418,16 +446,28 @@ sync_npm_global_packages() {
     return 0
   fi
 
+  prefix="$(npm_global_prefix)"
   while IFS= read -r package_spec || [[ -n "${package_spec}" ]]; do
     if [[ "${package_spec}" =~ ^[[:space:]]*($|#) ]]; then
       continue
     fi
 
+    # Bare package names keep their installed version during setup. An explicit
+    # version/tag/range is configuration to apply, so still pass it to npm.
+    case "${package_spec}" in
+      @*/*@*|[!@]*@*) ;;
+      *)
+        if [[ "${mode}" == "setup" && -f "${prefix}/lib/node_modules/${package_spec}/package.json" ]]; then
+          log "Keeping installed npm package ${package_spec}"
+          continue
+        fi
+        ;;
+    esac
     packages+=("${package_spec}")
   done < "${NPM_GLOBAL_MANIFEST}"
 
   if [[ "${#packages[@]}" -eq 0 ]]; then
-    log "npm global packages are not configured; skipping"
+    log "No npm global packages need installation"
     return 0
   fi
 
@@ -436,13 +476,13 @@ sync_npm_global_packages() {
     return 1
   fi
 
-  prefix="$(npm_global_prefix)"
   run mkdir -p "${prefix}/bin"
   log "Syncing npm global packages into ${prefix}: ${packages[*]}"
   run npm install -g --prefix "${prefix}" "${packages[@]}"
 }
 
 sync_claude_code() {
+  local mode="${1:-setup}"
   local prefix
   local legacy_pkg_dir
   local legacy_bin
@@ -455,6 +495,10 @@ sync_claude_code() {
   prefix="$(npm_global_prefix)"
   legacy_pkg_dir="${prefix}/lib/node_modules/@anthropic-ai/claude-code"
   legacy_bin="${prefix}/bin/claude"
+
+  if keep_installed_tool "${mode}" claude "${legacy_bin}"; then
+    return 0
+  fi
 
   # Anthropic ships a native installer at https://claude.ai/install.sh which
   # installs into ~/.local/bin/claude and is the officially recommended path.
@@ -488,6 +532,7 @@ sync_claude_code() {
 }
 
 sync_codex() {
+  local mode="${1:-setup}"
   local prefix
   local legacy_pkg_dir
   local legacy_bin
@@ -500,6 +545,10 @@ sync_codex() {
   prefix="$(npm_global_prefix)"
   legacy_pkg_dir="${prefix}/lib/node_modules/@openai/codex"
   legacy_bin="${prefix}/bin/codex"
+
+  if keep_installed_tool "${mode}" codex "${legacy_bin}"; then
+    return 0
+  fi
 
   # OpenAI ships a standalone installer at https://chatgpt.com/codex/install.sh
   # which installs into ~/.local/bin/codex and is the officially recommended
@@ -535,11 +584,16 @@ sync_codex() {
 }
 
 sync_herdr() {
+  local mode="${1:-setup}"
   local install_dir="${HERDR_INSTALL_DIR:-${HOME}/.local/bin}"
   local herdr_bin="${install_dir}/herdr"
 
   if [[ "${SKIP_TOOL_INSTALL}" == "1" ]]; then
     log "Skipping herdr standalone installer because SKIP_TOOL_INSTALL=1"
+    return 0
+  fi
+
+  if keep_installed_tool "${mode}" herdr "${herdr_bin}"; then
     return 0
   fi
 
@@ -760,6 +814,8 @@ resolve_backend() {
 }
 
 setup_with_pixi() {
+  local mode="${1:-setup}"
+
   if ! pixi_backend_supported; then
     return 1
   fi
@@ -782,16 +838,18 @@ setup_with_pixi() {
   setup_links
   seed_codex_config
   sync_pixi_global
-  sync_neovim_plugins
-  sync_npm_global_packages
-  sync_claude_code
-  sync_codex
-  sync_herdr
+  sync_claude_settings
+  sync_neovim_plugins "${mode}"
+  sync_npm_global_packages "${mode}"
+  sync_claude_code "${mode}"
+  sync_codex "${mode}"
+  sync_herdr "${mode}"
   sync_reason_network
   log "Pixi-based setup completed. Restart the shell or run: source ~/.zshrc"
 }
 
 setup_with_nix() {
+  local mode="${1:-setup}"
   local target
 
   if ! ensure_nix_command; then
@@ -808,18 +866,19 @@ setup_with_nix() {
     return 1
   fi
 
-  home_manager_cmd switch --flake "${REPO_ROOT}#${target}"
+  # Fail if inputs need relocking; only update_with_nix may change flake.lock.
+  home_manager_cmd switch --flake "${REPO_ROOT}#${target}" --no-update-lock-file
   seed_codex_config
-  sync_npm_global_packages
-  sync_claude_code
-  sync_codex
-  sync_herdr
+  sync_npm_global_packages "${mode}"
+  sync_claude_code "${mode}"
+  sync_codex "${mode}"
+  sync_herdr "${mode}"
   sync_reason_network
   log "Nix-based setup completed."
 }
 
 update_with_pixi() {
-  setup_with_pixi
+  setup_with_pixi update
 }
 
 update_with_nix() {
@@ -830,5 +889,5 @@ update_with_nix() {
 
   log "Updating flake input nixpkgs"
   nix_cmd flake update nixpkgs --flake "${REPO_ROOT}"
-  setup_with_nix
+  setup_with_nix update
 }

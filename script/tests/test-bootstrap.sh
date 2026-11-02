@@ -78,46 +78,46 @@ export PATH
     [[ ":$PATH:" == *":$HERDR_INSTALL_DIR:"* ]] || fail "installer directory missing from PATH"
   }
   : > "$TEST_ROOT/calls"
-  sync_herdr
+  sync_herdr update
   assert_calls "installer:herdr:$HOME/.local/bin"
   pass 'herdr installs at managed path despite PATH shadow'
 
   HERDR_INSTALL_DIR="$TEST_ROOT/custom tools"
   : > "$TEST_ROOT/calls"
-  sync_herdr
+  sync_herdr update
   assert_calls "installer:herdr:$HERDR_INSTALL_DIR"
   stub_binary "$HERDR_INSTALL_DIR/herdr" managed-herdr
   : > "$TEST_ROOT/calls"
-  sync_herdr
+  sync_herdr update
   assert_calls 'managed-herdr:update'
   pass 'herdr honors custom install directory for install and update'
 
   rm "$HERDR_INSTALL_DIR/herdr"
   ln -s "$TEST_ROOT/shadow/herdr" "$HERDR_INSTALL_DIR/herdr"
   : > "$TEST_ROOT/calls"
-  sync_herdr
+  sync_herdr update
   assert_calls "installer:herdr:$HERDR_INSTALL_DIR"
   pass 'herdr never self-updates a package-manager symlink'
 
   : > "$TEST_ROOT/calls"
-  SKIP_TOOL_INSTALL=1 sync_herdr
+  SKIP_TOOL_INSTALL=1 sync_herdr update
   assert_calls ''
   # Restore the real wrapper to verify DRY_RUN suppresses downloads as well.
   # shellcheck source=/dev/null
   source "$BOOTSTRAP_LIB"
   curl() { fail 'dry run downloaded an installer'; }
-  DRY_RUN=1 sync_herdr > "$TEST_ROOT/dry-install"
+  DRY_RUN=1 sync_herdr update > "$TEST_ROOT/dry-install"
   [[ ! -s "$TEST_ROOT/calls" ]] || fail 'dry run executed herdr'
   rm "$HERDR_INSTALL_DIR/herdr"
   stub_binary "$HERDR_INSTALL_DIR/herdr" managed-herdr
-  DRY_RUN=1 sync_herdr > "$TEST_ROOT/dry-update"
+  DRY_RUN=1 sync_herdr update > "$TEST_ROOT/dry-update"
   [[ ! -s "$TEST_ROOT/calls" ]] || fail 'dry run updated herdr'
   pass 'herdr skip and dry-run suppress execution'
 
   stub_binary "$HERDR_INSTALL_DIR/herdr" failed-herdr 23
   safe_curl_run() { fail 'failed update fell back to installer'; }
   status=0
-  sync_herdr || status=$?
+  sync_herdr update || status=$?
   [[ "$status" == 23 ]] || fail "herdr update failure was masked: $status"
   assert_calls 'failed-herdr:update'
   pass 'herdr update failure propagates without reinstalling'
@@ -126,16 +126,16 @@ export PATH
 (
   safe_curl_run() { printf 'installer:%s\n' "$2" >> "$TEST_ROOT/calls"; }
   : > "$TEST_ROOT/calls"
-  sync_claude_code
+  sync_claude_code update
   assert_calls 'installer:claude-code'
   stub_binary "$HOME/.local/bin/claude" managed-claude
   : > "$TEST_ROOT/calls"
-  sync_claude_code
+  sync_claude_code update
   assert_calls 'managed-claude:update'
   stub_binary "$HOME/.local/bin/claude" failed-claude 19
   : > "$TEST_ROOT/calls"
   status=0
-  sync_claude_code || status=$?
+  sync_claude_code update || status=$?
   [[ "$status" == 19 ]] || fail "Claude update failure was masked: $status"
   assert_calls 'failed-claude:update'
   pass 'Claude uses managed path and propagates update failures'
@@ -212,7 +212,6 @@ reason:network join $REASON_NETWORK_JOIN_URL"
   for mapping in \
     '.codex/AGENTS.md:config/codex/AGENTS.md' \
     '.claude/CLAUDE.md:config/claude/CLAUDE.md' \
-    '.claude/settings.json:config/claude/settings.json' \
     '.claude/skills:config/ai-agents/skills' \
     '.agents/skills/sanitize-artifacts:config/ai-agents/skills/sanitize-artifacts' \
     '.claude/hooks/herdr-agent-state.sh:config/claude/hooks/herdr-agent-state.sh' \
@@ -220,6 +219,7 @@ reason:network join $REASON_NETWORK_JOIN_URL"
     [[ "$(readlink "$HOME/${mapping%%:*}")" == "$REPO_ROOT/${mapping#*:}" ]] || fail "wrong link: $mapping"
   done
   cmp "$HOME/.codex-old" "$HOME/.codex/AGENTS.md.bak.regression"
+  [[ ! -L "$HOME/.claude/settings.json" ]] || fail 'Claude settings linked back to shared source'
   [[ -d "$HOME/.agents/skills/keep-me" ]] || fail 'unmanaged skill lost'
   [[ ! -L "$HOME/.config/herdr" && -f "$HOME/.config/herdr/runtime" ]] || fail 'herdr state replaced'
   setup_links > /dev/null 2>&1
@@ -235,6 +235,109 @@ reason:network join $REASON_NETWORK_JOIN_URL"
   seed_codex_config > /dev/null 2>&1
   [[ "$(cat "$HOME/.codex/config.toml")" == 'model = "local"' ]] || fail 'existing codex config replaced'
   pass 'codex config is seeded once and never overwritten'
+)
+
+# A fresh setup installs missing CLIs once; applying it again neither updates
+# them nor migrates a working legacy npm installation.
+(
+  PATH=/usr/bin:/bin:/usr/sbin:/sbin
+  unset HERDR_INSTALL_DIR
+  rm "$HOME/.local/bin/claude"
+  safe_curl_run() {
+    local tool="$2"
+    [[ "$tool" != claude-code ]] || tool=claude
+    printf 'installer:%s\n' "$tool" >> "$TEST_ROOT/calls"
+    stub_binary "$HOME/.local/bin/$tool" "$tool"
+  }
+  : > "$TEST_ROOT/calls"
+  sync_claude_code setup
+  sync_codex setup
+  sync_herdr setup
+  assert_calls 'installer:claude
+installer:codex
+installer:herdr'
+
+  : > "$TEST_ROOT/calls"
+  sync_claude_code setup
+  sync_codex setup
+  sync_herdr setup
+  assert_calls ''
+  pass 'setup installs missing CLIs and keeps installed versions on rerun'
+
+  for spec in 'claude:@anthropic-ai/claude-code' 'codex:@openai/codex'; do
+    tool="${spec%%:*}"
+    package="${spec#*:}"
+    legacy_dir="$HOME/.local/lib/node_modules/$package"
+    mkdir -p "$legacy_dir"
+    stub_binary "$legacy_dir/cli" "legacy-$tool"
+    rm "$HOME/.local/bin/$tool"
+    ln -s "$legacy_dir/cli" "$HOME/.local/bin/$tool"
+  done
+  npm() { fail 'setup migrated a legacy npm CLI'; }
+  : > "$TEST_ROOT/calls"
+  sync_claude_code setup
+  sync_codex setup
+  assert_calls ''
+  [[ -L "$HOME/.local/bin/claude" && -L "$HOME/.local/bin/codex" ]] || fail 'setup replaced legacy CLI links'
+  pass 'setup preserves usable legacy npm CLIs without migration'
+
+  # A PATH installation also counts, even when the managed destination is empty.
+  rm "$HOME/.local/bin/claude" "$HOME/.local/bin/codex" "$HOME/.local/bin/herdr"
+  PATH="$TEST_ROOT/shadow:$PATH"
+  stub_binary "$TEST_ROOT/shadow/codex" shadow-codex
+  : > "$TEST_ROOT/calls"
+  sync_claude_code setup
+  sync_codex setup
+  sync_herdr setup
+  assert_calls ''
+  pass 'setup preserves CLIs supplied by another package manager'
+
+  # Codex still uses its installer on update, even with another CLI on PATH.
+  npm() { printf 'npm:%s\n' "$*" >> "$TEST_ROOT/calls"; }
+  : > "$TEST_ROOT/calls"
+  sync_codex update
+  [[ "$(tail -n 1 "$TEST_ROOT/calls")" == installer:codex ]] || fail 'Codex update missed installer'
+  pass 'Codex update still runs the official installer'
+)
+
+(
+  NPM_GLOBAL_PREFIX="$TEST_ROOT/npm prefix"
+  NPM_GLOBAL_MANIFEST="$TEST_ROOT/npm-packages.txt"
+  mkdir -p "$NPM_GLOBAL_PREFIX/lib/node_modules/czg" "$NPM_GLOBAL_PREFIX/lib/node_modules/@scope/installed"
+  printf '{}\n' > "$NPM_GLOBAL_PREFIX/lib/node_modules/czg/package.json"
+  printf '{}\n' > "$NPM_GLOBAL_PREFIX/lib/node_modules/@scope/installed/package.json"
+  printf 'czg\n@scope/installed\nmissing\n@scope/missing\n' > "$NPM_GLOBAL_MANIFEST"
+  npm() { printf 'npm:%s\n' "$*" >> "$TEST_ROOT/calls"; }
+  : > "$TEST_ROOT/calls"
+  sync_npm_global_packages setup
+  assert_calls "npm:install -g --prefix $NPM_GLOBAL_PREFIX missing @scope/missing"
+  : > "$TEST_ROOT/calls"
+  sync_npm_global_packages update
+  assert_calls "npm:install -g --prefix $NPM_GLOBAL_PREFIX czg @scope/installed missing @scope/missing"
+  pass 'npm setup installs only missing bare packages; update refreshes all'
+
+  printf 'czg@2.0.0\n@scope/installed@^2\n' > "$NPM_GLOBAL_MANIFEST"
+  : > "$TEST_ROOT/calls"
+  sync_npm_global_packages setup
+  assert_calls "npm:install -g --prefix $NPM_GLOBAL_PREFIX czg@2.0.0 @scope/installed@^2"
+  pass 'npm setup applies explicitly configured versions and ranges'
+
+  printf 'czg\n@scope/installed\n' > "$NPM_GLOBAL_MANIFEST"
+  : > "$TEST_ROOT/calls"
+  sync_npm_global_packages setup
+  assert_calls ''
+  pass 'npm setup does nothing when all configured packages are present'
+)
+
+(
+  nvim() { printf 'nvim:%s\n' "$*" >> "$TEST_ROOT/calls"; }
+  : > "$TEST_ROOT/calls"
+  sync_neovim_plugins setup
+  assert_calls 'nvim:--headless +Lazy! install +qa'
+  : > "$TEST_ROOT/calls"
+  sync_neovim_plugins update
+  assert_calls 'nvim:--headless +Lazy! sync +qa'
+  pass 'Neovim setup installs missing plugins; update syncs newer revisions'
 )
 
 # Run both public entrypoints with a mocked Linux platform and inert tool stubs.
@@ -254,8 +357,33 @@ for entrypoint in setup update; do
     /bin/bash "$REPO_ROOT/script/$entrypoint.sh" > "$TEST_ROOT/$entrypoint.log" 2>&1
   [[ -z "$(ls -A "$TEST_ROOT/dry-home")" ]] || fail "$entrypoint dry run changed HOME"
   grep -q 'pixi global sync' "$TEST_ROOT/$entrypoint.log" || fail "$entrypoint missed pixi sync"
-  grep -q 'herdr.dev/install.sh' "$TEST_ROOT/$entrypoint.log" || fail "$entrypoint missed herdr"
+  grep -q 'sync-claude-settings.sh' "$TEST_ROOT/$entrypoint.log" || fail "$entrypoint missed Claude settings sync"
+  if [[ "$entrypoint" == setup ]]; then
+    grep -q 'Keeping installed herdr' "$TEST_ROOT/$entrypoint.log" || fail 'setup replaced the PATH herdr'
+  else
+    grep -q 'herdr.dev/install.sh' "$TEST_ROOT/$entrypoint.log" || fail 'update missed herdr'
+  fi
   pass "$entrypoint pixi dry run on mocked Linux"
+done
+
+# Nix setup must pass the locked-input guard and never invoke flake update.
+# These are actual entrypoints with all execution suppressed by DRY_RUN.
+home-manager() { fail 'Home Manager executed during dry run'; }
+export -f home-manager
+for entrypoint in setup update; do
+  env HOME="$TEST_ROOT/dry-home" BOOTSTRAP_BACKEND=nix DRY_RUN=1 \
+    /bin/bash "$REPO_ROOT/script/$entrypoint.sh" > "$TEST_ROOT/nix-$entrypoint.log" 2>&1
+  [[ -z "$(ls -A "$TEST_ROOT/dry-home")" ]] || fail "$entrypoint nix dry run changed HOME"
+  grep -q -- '--no-update-lock-file' "$TEST_ROOT/nix-$entrypoint.log" || fail "$entrypoint allowed implicit relocking"
+  if [[ "$entrypoint" == setup ]]; then
+    if grep -q 'flake update' "$TEST_ROOT/nix-$entrypoint.log"; then
+      fail 'setup updates flake inputs'
+    fi
+  else
+    grep -q 'flake update nixpkgs' "$TEST_ROOT/nix-$entrypoint.log" || fail 'update missed flake update'
+    grep -q 'claude.ai/install.sh' "$TEST_ROOT/nix-$entrypoint.log" || fail 'nix update did not propagate update mode to CLI sync'
+  fi
+  pass "$entrypoint nix dry run uses the intended lock and CLI behavior"
 done
 
 # Auto update must never ask to install nix, even when install is opted in.
