@@ -368,6 +368,17 @@ sync_claude_settings() {
     "${REPO_ROOT}/config/claude/settings.json" "${HOME}/.claude/settings.json"
 }
 
+# config/claude/agents was removed; drop the link an older setup created so
+# ~/.claude/agents does not dangle. Anything else at that path is left alone.
+remove_legacy_claude_agents_link() {
+  local target="${HOME}/.claude/agents"
+
+  if [[ -L "${target}" && "$(readlink "${target}")" == "${REPO_ROOT}/config/claude/agents" ]]; then
+    log "Removing obsolete link ${target}"
+    run rm "${target}"
+  fi
+}
+
 setup_links() {
   local manifest_source
   manifest_source="$(pixi_manifest_source)"
@@ -382,7 +393,7 @@ setup_links() {
   link_path "${REPO_ROOT}/config/codex/pets" "${HOME}/.codex/pets"
   link_path "${REPO_ROOT}/config/codex/subagent.config.toml" "${HOME}/.codex/subagent.config.toml"
   link_path "${REPO_ROOT}/config/claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
-  link_path "${REPO_ROOT}/config/claude/agents" "${HOME}/.claude/agents"
+  remove_legacy_claude_agents_link
   link_path "${REPO_ROOT}/config/ai-agents/skills" "${HOME}/.claude/skills"
   link_path "${REPO_ROOT}/config/ai-agents/skills/sanitize-artifacts" "${HOME}/.agents/skills/sanitize-artifacts"
   link_path "${REPO_ROOT}/config/claude/hooks/herdr-agent-state.sh" "${HOME}/.claude/hooks/herdr-agent-state.sh"

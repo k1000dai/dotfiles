@@ -21,7 +21,7 @@ when the task depends on conversation history Codex cannot see.
 ## How to run
 
 ```bash
-~/.claude/skills/delegate-codex/run.sh [-C <dir>] [-m <model>] [-s <sandbox>] [-t <seconds>] <task | ->
+~/.claude/skills/delegate-codex/run.sh [-C <dir>] [-m <model>] [-s <sandbox>] [-t <seconds>] [-r <session>] <task | ->
 ```
 
 - Pass long tasks over stdin with `-` (heredoc) to avoid quoting problems.
@@ -30,9 +30,24 @@ when the task depends on conversation history Codex cannot see.
   (`~/.codex/subagent.config.toml`): `approval_policy = "never"`,
   `sandbox_mode = "danger-full-access"`. Pass `-s read-only` for review-only runs.
 - `-m` overrides the model; omit it to use the profile default.
-- stdout is the final answer only; Codex progress is on stderr.
+- `-r <session>` continues an earlier run with its context (for example "now fix
+  findings 1 and 3"). Each run prints `[codex subagent] session=<id>` on stderr.
+  `-r last` picks the most recent session, which is ambiguous when runs are in
+  parallel, so prefer the id. Pass `-C`/`-s` again; they are not inherited.
+- `-t` kills the whole Codex process group after that many seconds (default 1800)
+  and exits 124. It needs no GNU `timeout`.
+- stdout is the final answer only. Progress goes to a log file, so the Bash tool
+  output stays small; on failure the last 20 lines and the log path are printed
+  on stderr. Set `CODEX_SUBAGENT_VERBOSE=1` to stream progress to stderr instead.
 - Non-zero exit with no answer usually means Codex is not logged in (`codex login`),
-  the quota is exhausted, or the run timed out (`-t`, default 1800s).
+  the quota is exhausted, or the run timed out (exit 124).
+
+## Parallel runs
+
+Call `run.sh` directly; there is no relay subagent. For independent tasks, start
+each call with the Bash tool's `run_in_background` and collect the results when
+they finish. Give parallel runs separate `-C` directories or worktrees when they
+edit files.
 
 ## Writing the task
 

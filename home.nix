@@ -106,8 +106,6 @@
     # out-of-store: edits in the repo apply without a home-manager rebuild
     ".claude/CLAUDE.md".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/claude/CLAUDE.md";
-    ".claude/agents".source =
-      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/claude/agents";
     ".claude/skills".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/ai-agents/skills";
     # File-level links leave room for integration-managed and local hooks.

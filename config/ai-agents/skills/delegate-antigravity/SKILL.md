@@ -21,20 +21,38 @@ Do not use it for small edits or for tasks that need the current conversation.
 ## How to run
 
 ```bash
-~/.claude/skills/delegate-antigravity/run.sh [-C <dir>] [-m <model>] [-M <mode>] [-t <seconds>] <task | ->
+~/.claude/skills/delegate-antigravity/run.sh [-C <dir>] [-m <model>] [-M <mode>] [-t <seconds>] [-r <conversation>] <task | ->
 ```
 
-- Pass long tasks over stdin with `-` (heredoc).
+- Pass long tasks over stdin with `-` (heredoc). Tasks over 64 KiB are written to
+  a temporary file that agy reads, because argv is limited (~1 MiB on macOS).
+  `-M plan` rejects such tasks: put the material in files and pass paths.
 - `-C` sets the working directory. Use an absolute path.
 - `-M accept-edits` (default) runs with `--dangerously-skip-permissions`, so edits
-  and commands are auto-approved. `-M plan` is read-only: use it for reviews and
-  investigations that must not change files. (`auto` mode is not available on
-  every account.)
-- `-m` picks the model. Default `gemini-4-argon-high`. `gemini-3.8-flash-high` is
-  cheaper on quota for broad but simple scans. `agy models` lists ids.
+  and commands are auto-approved. `-M plan` is for reviews and investigations: it
+  drops `--dangerously-skip-permissions` and adds `--sandbox`, but agy does not
+  enforce read-only (allow rules in `~/.gemini/antigravity-cli/settings.json` still
+  apply). Also say "do not modify files" in the task. In a git repository the
+  wrapper warns on stderr when the run changed the working tree. (`auto` mode is
+  not available on every account.)
+- `-m` picks the model. Without it agy uses the `model` in
+  `~/.gemini/antigravity-cli/settings.json` (seeded as Gemini 4 Argon (High)).
+  `gemini-3.8-flash-high` is cheaper on quota for broad but simple scans.
+  `agy models` lists ids.
+- `-r <conversation>` continues an earlier run with its context. Each run prints
+  `[agy subagent] conversation=<id>` on stderr. `-r last` maps to `--continue`
+  (most recent conversation), which is ambiguous in parallel, so prefer the id.
 - stdout is the final response only (parsed from `--output-format json`).
 - Non-zero exit with a login message means run `agy` once interactively to sign
-  in. A `status` other than `SUCCESS` is reported on stderr.
+  in. A `status` other than `SUCCESS`, or a tool permission that headless mode
+  auto-denied, is reported on stderr with a non-zero exit.
+
+## Parallel runs
+
+Call `run.sh` directly; there is no relay subagent. For independent tasks, start
+each call with the Bash tool's `run_in_background` and collect the results when
+they finish. Give parallel runs separate `-C` directories or worktrees when they
+edit files.
 
 ## Writing the task
 

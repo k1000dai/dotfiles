@@ -212,22 +212,24 @@ macOS / Linux の Home Manager と Linux pixi で同じ共通設定を適用し�
 - Claude Code の skills は `~/.claude/skills` にリンクします。アプリが生成する `skills/synced/` は Git の管理対象外です。
 - 共通の `sanitize-artifacts` skill は Codex の [ユーザー用 skills ディレクトリ](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills) `~/.agents/skills/sanitize-artifacts` にも個別リンクします。既存の他の skills はそのまま使えます。
 - Codex の既定設定 `config/codex/config.toml` (model `gpt-6-astra`、reasoning `xhigh`、service tier `fast`、permission は auto: `on-request` + `workspace-write` + auto-review) は、`~/.codex/config.toml` が無いときだけ setup / update がコピーします。Codex は project trust や desktop の状態を同じファイルに書き込むので、リンクはせず既存ファイルも上書きしません。
-- Antigravity CLI の既定設定 `config/antigravity/settings.json` (`agentMode: accept-edits`) も同様に `~/.gemini/antigravity-cli/settings.json` が無いときだけコピーします。CLI は trusted workspace やモデル選択を同じファイルに書き込みます。
+- Antigravity CLI の既定設定 `config/antigravity/settings.json` (`agentMode: accept-edits`、`model: Gemini 4 Argon (High)`) も同様に `~/.gemini/antigravity-cli/settings.json` が無いときだけコピーします。CLI は trusted workspace やモデル選択を同じファイルに書き込みます。
 
 ### Claude Code をベースにした subagent 構成
 
-Claude Code をオーケストレータとし、Codex CLI と Antigravity CLI を subagent として呼びます。各 CLI は公式バイナリを非対話モードで起動するので、それぞれのサブスクリプション枠 (ChatGPT / Google AI Pro + Antigravity) を規約の範囲内で使い、Claude の枠は消費しません。
+Claude Code をオーケストレータとし、Codex CLI と Antigravity CLI を skill の `run.sh` から直接呼びます。並列に回すときは Claude の Bash ツールで `run_in_background` を使います (Claude 側に中継用の subagent は置きません)。各 CLI は公式バイナリを非対話モードで起動するので、それぞれのサブスクリプション枠 (ChatGPT / Google AI Pro + Antigravity) を規約の範囲内で使い、Claude の枠は消費しません。
 
 | 部品 | パス | 役割 |
 | --- | --- | --- |
 | skill `delegate-codex` | `config/ai-agents/skills/delegate-codex/` | `run.sh` が `codex exec -p subagent -o <file>` を実行し、最終メッセージだけを stdout に返す |
-| skill `delegate-antigravity` | `config/ai-agents/skills/delegate-antigravity/` | `run.sh` が `agy --output-format=json --mode=accept-edits --dangerously-skip-permissions --print=<task>` を実行し、`.response` を stdout に返す |
-| Claude subagent `codex` / `antigravity` | `config/claude/agents/*.md` → `~/.claude/agents` | `Task` ツールから並列起動できる薄いドライバ。対応する skill を preload し、`permissionMode: bypassPermissions` で `run.sh` を実行して結果を検証・報告する |
+| skill `delegate-antigravity` | `config/ai-agents/skills/delegate-antigravity/` | `run.sh` が `agy --output-format=json --mode=accept-edits --dangerously-skip-permissions --print=<task>` を実行し、`.response` を stdout に返す。モデルは `-m` が無ければ agy の `settings.json` の `model` |
 | Codex profile `subagent` | `config/codex/subagent.config.toml` → `~/.codex/subagent.config.toml` | `approval_policy = "never"`、`sandbox_mode = "danger-full-access"`、reasoning `high`。`~/.codex/config.toml` の上に layer される |
 
-- subagent の権限は意図的に強くしています (Codex はサンドボックスなし、agy は permission prompt をスキップ)。結果の検証は呼び出し側の Claude が行います。レビューや調査だけのときは `run.sh -s read-only` (Codex) / `run.sh -M plan` (agy) を使います。
+- subagent の権限は意図的に強くしています (Codex はサンドボックスなし、agy は permission prompt をスキップ)。結果の検証は呼び出し側の Claude が行います。レビューや調査だけのときは `run.sh -s read-only` (Codex) / `run.sh -M plan` (agy) を使います。agy の `plan` は `--sandbox` を付けますが read-only を強制しないため、git 管理下で作業ツリーが変わると `run.sh` が警告します。
+- Codex の `-t` は GNU `timeout` に頼らず、`run.sh` 内の watchdog がプロセスグループごと止めます。進捗は一時ログに書き、失敗時だけ末尾とパスを stderr に出します。
+- agy に渡す 64 KiB を超えるタスクは引数長の上限を避けるため一時ファイル経由で渡します (`plan` では拒否)。
 - `run.sh` は単体でも使えます。`run.sh -C /abs/path - <<'EOF' ... EOF` のように stdin でタスクを渡します。
-- Claude Code の `permissions.allow` に `run.sh` と `codex exec` / `agy --print` を登録しているので、メインの Claude も subagent を介さず直接呼べます。
+- 続きを頼むときは `run.sh -r <id>` で前回の会話を再開します。Codex は session id、agy は conversation id を stderr に出します (`-r last` は直近の会話ですが、並列実行中は曖昧になります)。
+- Claude Code の `permissions.allow` に `run.sh` と `codex exec` / `agy --print` を登録しているので、確認なしで呼べます。
 - skills ディレクトリは Codex 側には `sanitize-artifacts` だけをリンクしているため、Codex が自分自身や agy を再帰的に呼ぶことはありません。
 - hooks は `~/.claude/hooks/` にファイル単位でリンクします。herdr の生成管理 hook と独自の `pre-commit-stop.sh` を分けています。
 - Stop hook はイベントの `cwd` から Git root を解決し、`.pre-commit-config.yaml` と変更がある場合だけ検査します。サブディレクトリからの起動にも対応し、hook による継続時の再帰実行を避けます。
@@ -262,8 +264,7 @@ uv tool install huggingface_hub
 | `config/yabai` / `config/skhd` | macOS の WM / hotkey | `~/.config/yabai` / `~/.config/skhd` |
 | `config/claude/settings.json` | Claude Code の共通設定 | `~/.claude/settings.json` (Home Manager activation / pixi bootstrap でマージ。ローカル状態は repo に戻さない) |
 | `config/claude/hooks/` | Claude Code hooks | `~/.claude/hooks/*.sh` (ファイル単位の out-of-store link) |
-| `config/claude/agents/` | Claude Code custom subagents (`codex` / `antigravity`) | `~/.claude/agents` (out-of-store link) |
-| `config/antigravity/settings.json` | Antigravity CLI の既定設定 (`agentMode`) | `~/.gemini/antigravity-cli/settings.json` (存在しないときだけコピー。以後は CLI が書き換えるローカルファイル) |
+| `config/antigravity/settings.json` | Antigravity CLI の既定設定 (`agentMode`, `model`) | `~/.gemini/antigravity-cli/settings.json` (存在しないときだけコピー。以後は CLI が書き換えるローカルファイル) |
 | `config/ai-agents/` | AI agent 共通指示 (`INSTRUCTIONS.md`) と skills (`sanitize-artifacts`, `delegate-codex`, `delegate-antigravity`) | `~/.claude/CLAUDE.md`, `~/.claude/skills`, `~/.agents/skills/sanitize-artifacts` (out-of-store link) |
 | `config/codex/AGENTS.md` | 共通指示 (`config/ai-agents/INSTRUCTIONS.md`) への symlink | `~/.codex/AGENTS.md` (out-of-store link で編集即反映) |
 | `config/codex/config.toml` | Codex の既定設定 (model / reasoning / service tier / permission) | `~/.codex/config.toml` (存在しないときだけコピー。以後は Codex が書き換えるローカルファイル) |

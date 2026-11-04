@@ -1,3 +1,4 @@
 {
-  "agentMode": "accept-edits"
+  "agentMode": "accept-edits",
+  "model": "Gemini 4 Argon (High)"
 }
