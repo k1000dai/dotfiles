@@ -3,7 +3,15 @@
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "permissions": {
-    "defaultMode": "auto"
+    "defaultMode": "auto",
+    "allow": [
+      "Bash(~/.claude/skills/delegate-codex/run.sh:*)",
+      "Bash(~/.claude/skills/delegate-antigravity/run.sh:*)",
+      "Bash(codex exec:*)",
+      "Bash(agy --print:*)",
+      "Bash(agy -p:*)",
+      "Bash(agy models:*)"
+    ]
   },
   "model": "opus",
   "hooks": {

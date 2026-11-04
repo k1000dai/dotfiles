@@ -357,6 +357,12 @@ seed_codex_config() {
   seed_path "${REPO_ROOT}/config/codex/config.toml" "${HOME}/.codex/config.toml"
 }
 
+# The Antigravity CLI records trusted workspaces and model choices in the same
+# settings.json, so seed defaults once and leave the live file alone afterwards.
+seed_antigravity_config() {
+  seed_path "${REPO_ROOT}/config/antigravity/settings.json" "${HOME}/.gemini/antigravity-cli/settings.json"
+}
+
 sync_claude_settings() {
   TIMESTAMP="${TIMESTAMP}" run bash "${SCRIPT_LIB_DIR}/sync-claude-settings.sh" \
     "${REPO_ROOT}/config/claude/settings.json" "${HOME}/.claude/settings.json"
@@ -374,7 +380,9 @@ setup_links() {
   link_path "${REPO_ROOT}/.zsh/git-prompt.sh" "${HOME}/.zsh/git-prompt.sh"
   link_path "${REPO_ROOT}/config/codex/AGENTS.md" "${HOME}/.codex/AGENTS.md"
   link_path "${REPO_ROOT}/config/codex/pets" "${HOME}/.codex/pets"
+  link_path "${REPO_ROOT}/config/codex/subagent.config.toml" "${HOME}/.codex/subagent.config.toml"
   link_path "${REPO_ROOT}/config/claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
+  link_path "${REPO_ROOT}/config/claude/agents" "${HOME}/.claude/agents"
   link_path "${REPO_ROOT}/config/ai-agents/skills" "${HOME}/.claude/skills"
   link_path "${REPO_ROOT}/config/ai-agents/skills/sanitize-artifacts" "${HOME}/.agents/skills/sanitize-artifacts"
   link_path "${REPO_ROOT}/config/claude/hooks/herdr-agent-state.sh" "${HOME}/.claude/hooks/herdr-agent-state.sh"
@@ -581,6 +589,36 @@ sync_codex() {
   # keeps it from prompting ("Start Codex now?") during setup/update.
   log "Installing/updating codex via official standalone installer"
   CODEX_NON_INTERACTIVE=1 safe_curl_run 'https://chatgpt.com/codex/install.sh' 'codex'
+}
+
+sync_antigravity() {
+  local mode="${1:-setup}"
+  local agy_bin="${HOME}/.local/bin/agy"
+
+  if [[ "${SKIP_TOOL_INSTALL}" == "1" ]]; then
+    log "Skipping antigravity CLI installer because SKIP_TOOL_INSTALL=1"
+    return 0
+  fi
+
+  if keep_installed_tool "${mode}" agy "${agy_bin}"; then
+    return 0
+  fi
+
+  # Google ships a standalone installer at https://antigravity.google/cli/install.sh
+  # which installs into ~/.local/bin/agy. Keep ~/.local/bin on PATH first so the
+  # installer does not append its own PATH block to the shell profiles.
+  ensure_path "${HOME}/.local/bin"
+
+  # `agy update` only applies to the installer-managed binary, so check that
+  # path explicitly rather than whatever `agy` resolves to on PATH. A symlink
+  # into a package manager store is replaced by a standalone copy instead.
+  if [[ -x "${agy_bin}" && ! -L "${agy_bin}" ]]; then
+    log "Updating antigravity CLI via agy update"
+    run "${agy_bin}" update
+  else
+    log "Installing antigravity CLI via official standalone installer"
+    safe_curl_run 'https://antigravity.google/cli/install.sh' 'antigravity-cli'
+  fi
 }
 
 sync_herdr() {
@@ -837,12 +875,14 @@ setup_with_pixi() {
 
   setup_links
   seed_codex_config
+  seed_antigravity_config
   sync_pixi_global
   sync_claude_settings
   sync_neovim_plugins "${mode}"
   sync_npm_global_packages "${mode}"
   sync_claude_code "${mode}"
   sync_codex "${mode}"
+  sync_antigravity "${mode}"
   sync_herdr "${mode}"
   sync_reason_network
   log "Pixi-based setup completed. Restart the shell or run: source ~/.zshrc"
@@ -869,9 +909,11 @@ setup_with_nix() {
   # Fail if inputs need relocking; only update_with_nix may change flake.lock.
   home_manager_cmd switch --flake "${REPO_ROOT}#${target}" --no-update-lock-file
   seed_codex_config
+  seed_antigravity_config
   sync_npm_global_packages "${mode}"
   sync_claude_code "${mode}"
   sync_codex "${mode}"
+  sync_antigravity "${mode}"
   sync_herdr "${mode}"
   sync_reason_network
   log "Nix-based setup completed."

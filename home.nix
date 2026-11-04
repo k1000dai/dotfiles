@@ -74,8 +74,8 @@
     pkgs.autoconf
 
     # other
-    # codex / claude-code / herdr use their official standalone installers instead
-    # (script/lib/bootstrap-common.sh: sync_codex / sync_claude_code / sync_herdr)
+    # codex / claude-code / agy / herdr use their official standalone installers instead
+    # (script/lib/bootstrap-common.sh: sync_codex / sync_claude_code / sync_antigravity / sync_herdr)
     #pkgs.codex
     #pkgs.claude-code
     pkgs.jq
@@ -100,9 +100,14 @@
     # out-of-store: Codex writes new/regenerated pets straight into the repo
     ".codex/pets".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/codex/pets";
+    # Codex profile layered via `codex exec -p subagent` (delegate-codex skill)
+    ".codex/subagent.config.toml".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/codex/subagent.config.toml";
     # out-of-store: edits in the repo apply without a home-manager rebuild
     ".claude/CLAUDE.md".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/claude/CLAUDE.md";
+    ".claude/agents".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/claude/agents";
     ".claude/skills".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/config/ai-agents/skills";
     # File-level links leave room for integration-managed and local hooks.

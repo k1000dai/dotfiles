@@ -1,0 +1,10 @@
+# Codex profile used when Codex runs as a subagent under Claude Code
+# (config/ai-agents/skills/delegate-codex/run.sh passes `-p subagent`).
+# Layered on top of ~/.codex/config.toml; linked to ~/.codex/subagent.config.toml.
+#
+# Unattended with full workspace access: no approval prompts, no sandbox.
+# The caller (Claude Code) is responsible for reviewing the result.
+
+model_reasoning_effort = "high"
+approval_policy = "never"
+sandbox_mode = "danger-full-access"

@@ -180,14 +180,16 @@ AI CLI は公式が配布する standalone installer で `~/.local/bin` に導�
 | --- | --- | --- | --- |
 | `claude` | `sync_claude_code` | `curl -fsSL https://claude.ai/install.sh \| bash` | `~/.local/bin/claude` |
 | `codex` | `sync_codex` | `curl -fsSL https://chatgpt.com/codex/install.sh \| sh` | `~/.local/bin/codex` |
+| `agy` | `sync_antigravity` | `curl -fsSL https://antigravity.google/cli/install.sh \| bash` | `~/.local/bin/agy` |
 | `herdr` | `sync_herdr` | `curl -fsSL https://herdr.dev/install.sh \| sh` | `~/.local/bin/herdr` |
 | `reason` | `sync_reason_network` | `curl -fsSL https://reasonmachines.com/install.sh \| bash -s -- network join '<link>'` | `~/.local/bin/reason` |
 
 - `@anthropic-ai/claude-code` / `@openai/codex` は npm 側では管理しません。既存の npm 版から standalone 版への移行は `update.sh` で行います。`config/npm/npm-global-packages.txt` に戻さないでください。
-- `codex` / `herdr` は nix (`pkgs.codex` / `pkgs.herdr`) でも入れません。`home.nix` の該当行はコメントアウトしてあります。
+- `codex` / `agy` / `herdr` は nix (`pkgs.codex` / `pkgs.herdr` など) でも入れません。`home.nix` の該当行はコメントアウトしてあります。
 - codex installer は `~/.local/bin` が PATH に無いと shell profile (`~/.zprofile` など) に PATH ブロックを追記するため、`sync_codex` は installer 実行前に PATH を通します。また `CODEX_NON_INTERACTIVE=1` を渡してプロンプトを抑止します。
 - `update.sh` では、`claude` は `~/.local/bin/claude` があれば、そのバイナリの `update` を実行します。PATH 上の別のインストールは更新対象にしません。
 - `update.sh` では、`codex` は [公式の更新手順](https://learn.chatgpt.com/docs/codex/cli) と同じく installer を再実行します。
+- `update.sh` では、`agy` (Antigravity CLI) は `~/.local/bin/agy` があれば、そのバイナリの `agy update` を実行します。PATH 上の別バイナリや symlink は更新対象にせず、導入先が symlink の場合は standalone installer で置き換えます。初回は `agy` を対話実行して Google アカウントでログインしてください。
 - `update.sh` では、`herdr` は導入先のバイナリで `herdr update` を実行します。[公式の注意事項](https://herdr.dev/docs/install/#update) に従い、PATH 上の別バイナリや package manager を指す symlink は更新対象にせず、導入先が symlink の場合は standalone installer で置き換えます。
 - `HERDR_INSTALL_DIR` を指定した場合、インストール・更新の両方で同じディレクトリを使います。更新時も同じ値を指定してください。省略時は `~/.local/bin` です。更新に失敗した場合はエラーを返し、別チャネルへの再インストールは行いません。
 - `reason` (Reason Network) の招待リンクは秘密情報で、この repo は public なのでコミットしません。未導入の場合、`setup.sh` を端末から実行すると join link の貼り付けを求めます (Enter でスキップ)。link を受け取ったときだけ installer を実行し、CLI の導入と `reason network join` を行います。`update.sh`、`DRY_RUN=1`、非対話実行では確認しません。事前に渡すこともできます。
@@ -197,7 +199,7 @@ AI CLI は公式が配布する standalone installer で `~/.local/bin` に導�
   ```
 
 - `reason` 導入済みの場合、`network who --json` で team を確認し、未参加のときだけ `reason network join` を実行します。CLI は Reason Network の background process が 1 日 1 回ほど更新します。`reason update` は desktop components (macOS で約 325 MB) も導入するため使いません。
-- `SKIP_TOOL_INSTALL=1` で 4 CLI のインストール・更新をスキップできます。
+- `SKIP_TOOL_INSTALL=1` で 5 CLI のインストール・更新をスキップできます。
 
 ### Agent 設定と hooks
 
@@ -210,6 +212,23 @@ macOS / Linux の Home Manager と Linux pixi で同じ共通設定を適用し�
 - Claude Code の skills は `~/.claude/skills` にリンクします。アプリが生成する `skills/synced/` は Git の管理対象外です。
 - 共通の `sanitize-artifacts` skill は Codex の [ユーザー用 skills ディレクトリ](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills) `~/.agents/skills/sanitize-artifacts` にも個別リンクします。既存の他の skills はそのまま使えます。
 - Codex の既定設定 `config/codex/config.toml` (model `gpt-6-astra`、reasoning `xhigh`、service tier `fast`、permission は auto: `on-request` + `workspace-write` + auto-review) は、`~/.codex/config.toml` が無いときだけ setup / update がコピーします。Codex は project trust や desktop の状態を同じファイルに書き込むので、リンクはせず既存ファイルも上書きしません。
+- Antigravity CLI の既定設定 `config/antigravity/settings.json` (`agentMode: accept-edits`) も同様に `~/.gemini/antigravity-cli/settings.json` が無いときだけコピーします。CLI は trusted workspace やモデル選択を同じファイルに書き込みます。
+
+### Claude Code をベースにした subagent 構成
+
+Claude Code をオーケストレータとし、Codex CLI と Antigravity CLI を subagent として呼びます。各 CLI は公式バイナリを非対話モードで起動するので、それぞれのサブスクリプション枠 (ChatGPT / Google AI Pro + Antigravity) を規約の範囲内で使い、Claude の枠は消費しません。
+
+| 部品 | パス | 役割 |
+| --- | --- | --- |
+| skill `delegate-codex` | `config/ai-agents/skills/delegate-codex/` | `run.sh` が `codex exec -p subagent -o <file>` を実行し、最終メッセージだけを stdout に返す |
+| skill `delegate-antigravity` | `config/ai-agents/skills/delegate-antigravity/` | `run.sh` が `agy --output-format=json --mode=accept-edits --dangerously-skip-permissions --print=<task>` を実行し、`.response` を stdout に返す |
+| Claude subagent `codex` / `antigravity` | `config/claude/agents/*.md` → `~/.claude/agents` | `Task` ツールから並列起動できる薄いドライバ。対応する skill を preload し、`permissionMode: bypassPermissions` で `run.sh` を実行して結果を検証・報告する |
+| Codex profile `subagent` | `config/codex/subagent.config.toml` → `~/.codex/subagent.config.toml` | `approval_policy = "never"`、`sandbox_mode = "danger-full-access"`、reasoning `high`。`~/.codex/config.toml` の上に layer される |
+
+- subagent の権限は意図的に強くしています (Codex はサンドボックスなし、agy は permission prompt をスキップ)。結果の検証は呼び出し側の Claude が行います。レビューや調査だけのときは `run.sh -s read-only` (Codex) / `run.sh -M plan` (agy) を使います。
+- `run.sh` は単体でも使えます。`run.sh -C /abs/path - <<'EOF' ... EOF` のように stdin でタスクを渡します。
+- Claude Code の `permissions.allow` に `run.sh` と `codex exec` / `agy --print` を登録しているので、メインの Claude も subagent を介さず直接呼べます。
+- skills ディレクトリは Codex 側には `sanitize-artifacts` だけをリンクしているため、Codex が自分自身や agy を再帰的に呼ぶことはありません。
 - hooks は `~/.claude/hooks/` にファイル単位でリンクします。herdr の生成管理 hook と独自の `pre-commit-stop.sh` を分けています。
 - Stop hook はイベントの `cwd` から Git root を解決し、`.pre-commit-config.yaml` と変更がある場合だけ検査します。サブディレクトリからの起動にも対応し、hook による継続時の再帰実行を避けます。
 
@@ -243,9 +262,12 @@ uv tool install huggingface_hub
 | `config/yabai` / `config/skhd` | macOS の WM / hotkey | `~/.config/yabai` / `~/.config/skhd` |
 | `config/claude/settings.json` | Claude Code の共通設定 | `~/.claude/settings.json` (Home Manager activation / pixi bootstrap でマージ。ローカル状態は repo に戻さない) |
 | `config/claude/hooks/` | Claude Code hooks | `~/.claude/hooks/*.sh` (ファイル単位の out-of-store link) |
-| `config/ai-agents/` | AI agent 共通指示 (`INSTRUCTIONS.md`) と skills | `~/.claude/CLAUDE.md`, `~/.claude/skills`, `~/.agents/skills/sanitize-artifacts` (out-of-store link) |
+| `config/claude/agents/` | Claude Code custom subagents (`codex` / `antigravity`) | `~/.claude/agents` (out-of-store link) |
+| `config/antigravity/settings.json` | Antigravity CLI の既定設定 (`agentMode`) | `~/.gemini/antigravity-cli/settings.json` (存在しないときだけコピー。以後は CLI が書き換えるローカルファイル) |
+| `config/ai-agents/` | AI agent 共通指示 (`INSTRUCTIONS.md`) と skills (`sanitize-artifacts`, `delegate-codex`, `delegate-antigravity`) | `~/.claude/CLAUDE.md`, `~/.claude/skills`, `~/.agents/skills/sanitize-artifacts` (out-of-store link) |
 | `config/codex/AGENTS.md` | 共通指示 (`config/ai-agents/INSTRUCTIONS.md`) への symlink | `~/.codex/AGENTS.md` (out-of-store link で編集即反映) |
 | `config/codex/config.toml` | Codex の既定設定 (model / reasoning / service tier / permission) | `~/.codex/config.toml` (存在しないときだけコピー。以後は Codex が書き換えるローカルファイル) |
+| `config/codex/subagent.config.toml` | subagent 用 Codex profile (`codex exec -p subagent`) | `~/.codex/subagent.config.toml` (out-of-store link) |
 | `config/codex/pets/` | Codex desktop の custom pet (`<id>/pet.json` + `spritesheet.webp`) | `~/.codex/pets` (out-of-store link。Codex で作成/再生成した pet はそのまま repo に入る。どの pet を使うかは `~/.codex/config.toml` の `[desktop] selected-avatar-id = "custom:<id>"` で、こちらは未管理) |
 | `config/git/shared.gitconfig` | Git 共通設定 (user / alias / ghq / lfs) | nix: `programs.git.includes` / pixi: root `.gitconfig` から include |
 | `.gitconfig` | pixi backend 用エントリ (共通設定を include + credential) | `~/.gitconfig` (pixi のみ) |
