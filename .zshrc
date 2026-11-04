@@ -79,8 +79,8 @@ git_usr_name () {
 
 # zoxide
 if (( $+commands[zoxide] )); then
-  eval "$(zoxide init zsh)"
-  alias cz="z"
+  # Replace cd (and add cdi) with zoxide's frecency-aware jump.
+  eval "$(zoxide init zsh --cmd cd)"
 fi
 
 # Git
