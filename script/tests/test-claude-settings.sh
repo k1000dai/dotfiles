@@ -30,9 +30,12 @@ jq '.model = "local-model" | .env.LOCAL_ONLY = "keep"
 cp "$settings" "$test_root/before.json"
 sync_settings
 jq -e '.model == "opus" and .env.LOCAL_ONLY == "keep"
-  and .permissions.defaultMode == "auto" and .permissions.allow == ["Read"]
+  and .permissions.defaultMode == "auto" and .permissions.allow[0] == "Read"
+  and (.permissions.allow | length) == ($shared[0].permissions.allow | length) + 1
+  and ($shared[0].permissions.allow - .permissions.allow) == []
   and .hooks.PreToolUse[0].hooks[0].command == "local-hook"
-  and .autoMode.environment == ["this device only"]' "$settings" >/dev/null
+  and .autoMode.environment == ["this device only"]' \
+  --slurpfile shared "$shared" "$settings" >/dev/null
 cmp "$test_root/before.json" "$settings.bak.regression"
 sync_settings
 [[ ! -e "$settings.bak.regression.1" ]] || fail 'rerun created another backup'

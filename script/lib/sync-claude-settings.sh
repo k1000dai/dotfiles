@@ -30,8 +30,18 @@ trap 'rm -f "$settings_tmpfile"' EXIT
 
 # Objects merge recursively. Shared scalar/array values win; keys absent from
 # the shared file (including app-generated environment state) stay local.
-jq -S -n --slurpfile shared "$shared_settings" --slurpfile existing "$existing_settings" \
-  '($existing[0] // {}) * $shared[0]' > "$settings_tmpfile"
+# Permission rule lists are unions, so rules Claude Code saved locally survive
+# alongside shared rules.
+jq -S -n --slurpfile shared "$shared_settings" --slurpfile existing "$existing_settings" '
+  ($existing[0] // {}) as $local
+  | ($local * $shared[0])
+  | reduce ("allow", "ask", "deny") as $kind (.;
+      ([$local.permissions[$kind]?, $shared[0].permissions[$kind]?]
+        | map(arrays) | add) as $rules
+      | if $rules == null then . else
+          .permissions[$kind] = ($rules
+            | reduce .[] as $rule ([]; if index([$rule]) then . else . + [$rule] end))
+        end)' > "$settings_tmpfile"
 
 if [[ ! -L "$local_settings" ]] && cmp -s "$settings_tmpfile" "$local_settings"; then
   exit 0
