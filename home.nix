@@ -41,7 +41,8 @@
     pkgs.go
     pkgs.gopls
     pkgs.lua-language-server
-    pkgs.marksman
+    # marksman is omitted: nixpkgs builds it with a dotnet SDK that is often
+    # missing from the binary cache, which makes update.sh compile dotnet.
     pkgs.nixfmt
     pkgs.ruff
     pkgs.shellcheck
@@ -60,7 +61,11 @@
     pkgs.ghq
     pkgs.gh
     pkgs.lazygit
-    pkgs.pre-commit
+    # Hide dotnet from pre-commit so it skips only its dotnet hook tests: that
+    # SDK is often missing from the binary cache, and update.sh would compile it.
+    (pkgs.pre-commit.override {
+      dotnetCorePackages.sdk_8_0-source.meta.platforms = [ ];
+    })
 
     # python
     # uv / pixi use their official standalone installers instead
