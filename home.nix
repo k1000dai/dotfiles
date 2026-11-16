@@ -63,8 +63,8 @@
     pkgs.pre-commit
 
     # python
-    pkgs.uv
-    pkgs.pixi
+    # uv / pixi use their official standalone installers instead
+    # (script/lib/bootstrap-common.sh: sync_uv / sync_pixi)
     pkgs.python311
 
     # c/c++

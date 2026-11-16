@@ -123,6 +123,44 @@ export PATH
   pass 'herdr update failure propagates without reinstalling'
 )
 
+# uv and pixi come from their official installers on both backends; a copy in a
+# package manager's store is kept by setup but never asked to self-update.
+(
+  safe_curl_run() {
+    printf 'installer:%s:%s:%s\n' "$2" "${UV_INSTALL_DIR:-}${PIXI_BIN_DIR:-}" \
+      "${UV_NO_MODIFY_PATH:-}${PIXI_NO_PATH_UPDATE:-}" >> "$TEST_ROOT/calls"
+  }
+  stub_binary "$TEST_ROOT/store/uv" store-uv
+  stub_binary "$TEST_ROOT/store/pixi" store-pixi
+  for spec in "uv:$HOME/.local/bin:self update" "pixi:$HOME/.pixi/bin:self-update"; do
+    IFS=: read -r tool dir update_args <<< "$spec"
+    rm -f "$dir/$tool"
+    : > "$TEST_ROOT/calls"
+    "sync_$tool" setup
+    assert_calls "installer:$tool:$dir:1"
+    [[ ":$PATH:" == *":$dir:"* ]] || fail "$tool directory missing from PATH"
+
+    stub_binary "$dir/$tool" "managed-$tool"
+    : > "$TEST_ROOT/calls"
+    "sync_$tool" setup
+    assert_calls ''
+    "sync_$tool" update
+    assert_calls "managed-$tool:$update_args"
+
+    rm "$dir/$tool"
+    ln -s "$TEST_ROOT/store/$tool" "$dir/$tool"
+    : > "$TEST_ROOT/calls"
+    "sync_$tool" update
+    assert_calls "installer:$tool:$dir:1"
+
+    : > "$TEST_ROOT/calls"
+    SKIP_TOOL_INSTALL=1 "sync_$tool" update
+    assert_calls ''
+    rm "$dir/$tool"
+    pass "$tool installs via curl, keeps it on setup, and self-updates on update"
+  done
+)
+
 (
   safe_curl_run() { printf 'installer:%s\n' "$2" >> "$TEST_ROOT/calls"; }
   : > "$TEST_ROOT/calls"
@@ -301,8 +339,11 @@ for entrypoint in setup update; do
   grep -q 'sync-claude-settings.sh' "$TEST_ROOT/$entrypoint.log" || fail "$entrypoint missed Claude settings sync"
   if [[ "$entrypoint" == setup ]]; then
     grep -q 'Keeping installed herdr' "$TEST_ROOT/$entrypoint.log" || fail 'setup replaced the PATH herdr'
+    grep -q 'Keeping installed uv' "$TEST_ROOT/$entrypoint.log" || fail 'setup replaced the PATH uv'
   else
     grep -q 'herdr.dev/install.sh' "$TEST_ROOT/$entrypoint.log" || fail 'update missed herdr'
+    grep -q 'astral.sh/uv/install.sh' "$TEST_ROOT/$entrypoint.log" || fail 'update missed uv'
+    grep -q 'pixi.sh/install.sh' "$TEST_ROOT/$entrypoint.log" || fail 'update missed pixi'
   fi
   pass "$entrypoint pixi dry run on mocked Linux"
 done
@@ -323,6 +364,8 @@ for entrypoint in setup update; do
   else
     grep -q 'flake update nixpkgs' "$TEST_ROOT/nix-$entrypoint.log" || fail 'update missed flake update'
     grep -q 'claude.ai/install.sh' "$TEST_ROOT/nix-$entrypoint.log" || fail 'nix update did not propagate update mode to CLI sync'
+    grep -q 'astral.sh/uv/install.sh' "$TEST_ROOT/nix-$entrypoint.log" || fail 'nix update missed uv'
+    grep -q 'pixi.sh/install.sh' "$TEST_ROOT/nix-$entrypoint.log" || fail 'nix update missed pixi'
   fi
   pass "$entrypoint nix dry run uses the intended lock and CLI behavior"
 done

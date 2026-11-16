@@ -50,17 +50,18 @@ cd ~/.dotfiles
 - `home-manager` CLI が必要
 - `nix` がなければ、条件を満たすときだけ `multi-user nix` install を提案する
 - lockfile の更新を禁止して `home-manager switch --flake ".#<target>"` で Home Manager 設定を反映
+- `uv` / `pixi` は nixpkgs ではなく公式 installer (curl) で `~/.local/bin` / `~/.pixi/bin` に導入する
 - repo 管理の npm global CLI の不足分を `~/.local` に導入する
 
 ### pixi backend
 
 この repo では `pixi` backend は Linux 向けです。macOS では `nix` / `home-manager` を使います。
 
-- `uv` を `~/.local/bin` に install
-- `pixi` を `~/.pixi/bin` に install
+- `pixi` を公式 installer (curl) で `~/.pixi/bin` に install
 - dotfiles を `~/.config` や `~/.zshrc` / `~/.bashrc` / `~/.gitconfig` へ symlink
 - `~/.pixi/manifests/pixi-global.toml` を repo 内 manifest にリンク
 - `pixi global sync` を実行して CLI ツール群を導入
+- `uv` を公式 installer (curl) で `~/.local/bin` に install
 - `nvim --headless "+Lazy! install"` を実行して不足する Neovim plugin を導入
 - repo 管理の npm global CLI の不足分を `~/.local` に導入する
 
@@ -96,10 +97,10 @@ Linux の `pixi` フローで変更確認だけしたいとき:
 DRY_RUN=1 BOOTSTRAP_BACKEND=pixi ./script/setup.sh
 ```
 
-Linux の `pixi` フローで `uv` / `pixi` の再 install を避けたいとき:
+`uv` / `pixi` や AI CLI の install・更新を避けたいとき:
 
 ```bash
-SKIP_TOOL_INSTALL=1 BOOTSTRAP_BACKEND=pixi ./script/setup.sh
+SKIP_TOOL_INSTALL=1 ./script/setup.sh
 ```
 
 Linux の `pixi` フローで link の再生成だけ先にやり、`pixi global sync` は後で回したいとき:
@@ -149,9 +150,9 @@ manifest は次にあります。
 
 - shell / CLI: `zsh`, `fzf`, `ripgrep`, `bat`, `zoxide`, `tmux`, `yazi`, `wget`, `pueue`, `fd-find`
 - git 周辺: `git`, `git-lfs`, `gh`, `ghq`, `lazygit`
-- Python 周辺: `python`, `uv`, `ruff`
+- Python 周辺: `python`, `ruff` (`uv` は curl installer で別管理)
 - agent hooks: `jq`, `pre-commit` (各 repo の lint / test コマンドは別途その環境で用意)
-- editor / LSP 周辺: `nvim`, `node`, `bash-language-server`, `dockerfile-language-server`, `go`, `gopls`, `lua-language-server`, `marksman`, `taplo`, `ty`, `typescript-language-server`, `clangd`, `vscode-langservers-extracted`, `yaml-language-server`
+- editor / LSP 周辺: `nvim`, `node`, `bash-language-server`, `dockerfile-language-server`, `go`, `gopls`, `lua-language-server`, `marksman` (pixi のみ。nixpkgs 版は dotnet のソースビルドになりやすいため外す), `taplo`, `ty`, `typescript-language-server`, `clangd`, `vscode-langservers-extracted`, `yaml-language-server`
 
 次のようなものは `pixi global` manifest にはまだ寄せていません。
 
@@ -172,20 +173,24 @@ manifest は次にあります。
 
 - `czg`
 
-## curl installer 管理対象 (AI CLI)
+## curl installer 管理対象 (uv / pixi / AI CLI)
 
-AI CLI は公式が配布する standalone installer で `~/.local/bin` に導入します。いずれも `script/lib/bootstrap-common.sh` にあり、`setup.sh` は既存の CLI を保持して不足分だけを導入し、`update.sh` は導入・更新を行います。installer は一時ファイルへのダウンロードが完了してから実行し、成功・失敗にかかわらず削除します。取得にはリトライとタイムアウトを設定しています。
+`uv` / `pixi` と AI CLI は、nix / pixi どちらの backend でも公式が配布する standalone installer で導入します。いずれも `script/lib/bootstrap-common.sh` にあり、`setup.sh` は既存の CLI を保持して不足分だけを導入し、`update.sh` は導入・更新を行います。installer は一時ファイルへのダウンロードが完了してから実行し、成功・失敗にかかわらず削除します。取得にはリトライとタイムアウトを設定しています。
 
 | CLI | 関数 | installer | 導入先 |
 | --- | --- | --- | --- |
+| `uv` / `uvx` | `sync_uv` | `curl -LsSf https://astral.sh/uv/install.sh \| sh` | `~/.local/bin/uv` |
+| `pixi` | `sync_pixi` | `curl -fsSL https://pixi.sh/install.sh \| sh` | `~/.pixi/bin/pixi` |
 | `claude` | `sync_claude_code` | `curl -fsSL https://claude.ai/install.sh \| bash` | `~/.local/bin/claude` |
 | `codex` | `sync_codex` | `curl -fsSL https://chatgpt.com/codex/install.sh \| sh` | `~/.local/bin/codex` |
 | `agy` | `sync_antigravity` | `curl -fsSL https://antigravity.google/cli/install.sh \| bash` | `~/.local/bin/agy` |
 | `herdr` | `sync_herdr` | `curl -fsSL https://herdr.dev/install.sh \| sh` | `~/.local/bin/herdr` |
 
 - `@anthropic-ai/claude-code` / `@openai/codex` は npm 側では管理しません。既存の npm 版から standalone 版への移行は `update.sh` で行います。`config/npm/npm-global-packages.txt` に戻さないでください。
-- `codex` / `agy` / `herdr` は nix (`pkgs.codex` / `pkgs.herdr` など) でも入れません。`home.nix` の該当行はコメントアウトしてあります。
+- `uv` / `pixi` / `codex` / `agy` / `herdr` は nix (`pkgs.uv` / `pkgs.pixi` / `pkgs.codex` / `pkgs.herdr` など) でも入れません。`uv` は pixi global manifest にも入れません。`home.nix` の該当行はコメントアウトしてあります。
 - codex installer は `~/.local/bin` が PATH に無いと shell profile (`~/.zprofile` など) に PATH ブロックを追記するため、`sync_codex` は installer 実行前に PATH を通します。また `CODEX_NON_INTERACTIVE=1` を渡してプロンプトを抑止します。
+- `uv` / `pixi` の installer には `UV_NO_MODIFY_PATH=1` / `PIXI_NO_PATH_UPDATE=1` を渡し、shell profile を書き換えさせません (PATH は `.zshrc` / `.bashrc` で管理)。
+- `update.sh` では、`uv` / `pixi` は導入先のバイナリで `uv self update` / `pixi self-update` を実行します。PATH 上の別バイナリや package manager を指す symlink は更新対象にせず、導入先が symlink の場合は standalone installer で置き換えます。
 - `update.sh` では、`claude` は `~/.local/bin/claude` があれば、そのバイナリの `update` を実行します。PATH 上の別のインストールは更新対象にしません。
 - `update.sh` では、`codex` は [公式の更新手順](https://learn.chatgpt.com/docs/codex/cli) と同じく installer を再実行します。
 - `update.sh` では、`agy` (Antigravity CLI) は `~/.local/bin/agy` があれば、そのバイナリの `agy update` を実行します。PATH 上の別バイナリや symlink は更新対象にせず、導入先が symlink の場合は standalone installer で置き換えます。初回は `agy` を対話実行して Google アカウントでログインしてください。
@@ -202,6 +207,7 @@ macOS / Linux の Home Manager と Linux pixi で同じ共通設定を適用し�
 - 既存の Claude 設定リンクも通常ファイルへ移行します。変更前の内容は `settings.json.bak.<timestamp>` に保存し、同名のバックアップがあれば連番を付けます。内容が変わらない再適用ではバックアップを増やしません。JSON が不正な場合は既存ファイルを変更せず失敗します。
 - `autoMode.environment` などの環境情報、project trust、認証情報、端末固有の絶対パスは共通設定に含めません。共有設定に `autoMode.environment` があれば適用を拒否します。プロジェクト固有の設定は各 repo の `.claude/settings.json`、個人的な上書きは Git 管理外の `.claude/settings.local.json` を使います。
 - Claude Code の skills は `~/.claude/skills` にリンクします。アプリが生成する `skills/synced/` は Git の管理対象外です。
+- `paper-review` skill は LaTeX 論文を執筆ガイド (`~/Documents/latex/writing-guide/README.md`、無ければ同梱の汎用版 `checklist.md`) に沿ってレビューします。`scripts/lint.py` が曖昧な動詞・略語の初出・Abstract の長さ・匿名性・PDF メタデータなどを機械的に洗い出します。
 - 共通の `sanitize-artifacts` skill は Codex の [ユーザー用 skills ディレクトリ](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills) `~/.agents/skills/sanitize-artifacts` にも個別リンクします。既存の他の skills はそのまま使えます。
 - Codex の既定設定 `config/codex/config.toml` (model `gpt-6-astra`、reasoning `xhigh`、service tier `fast`、permission は auto: `on-request` + `workspace-write` + auto-review) は、`~/.codex/config.toml` が無いときだけ setup / update がコピーします。Codex は project trust や desktop の状態を同じファイルに書き込むので、リンクはせず既存ファイルも上書きしません。
 - Antigravity CLI の既定設定 `config/antigravity/settings.json` (`agentMode: accept-edits`、`model: Gemini 4 Argon (High)`) も同様に `~/.gemini/antigravity-cli/settings.json` が無いときだけコピーします。CLI は trusted workspace やモデル選択を同じファイルに書き込みます。
@@ -257,7 +263,7 @@ uv tool install huggingface_hub
 | `config/claude/settings.json` | Claude Code の共通設定 | `~/.claude/settings.json` (Home Manager activation / pixi bootstrap でマージ。ローカル状態は repo に戻さない) |
 | `config/claude/hooks/` | Claude Code hooks | `~/.claude/hooks/*.sh` (ファイル単位の out-of-store link) |
 | `config/antigravity/settings.json` | Antigravity CLI の既定設定 (`agentMode`, `model`) | `~/.gemini/antigravity-cli/settings.json` (存在しないときだけコピー。以後は CLI が書き換えるローカルファイル) |
-| `config/ai-agents/` | AI agent 共通指示 (`INSTRUCTIONS.md`) と skills (`sanitize-artifacts`, `delegate-codex`, `delegate-antigravity`) | `~/.claude/CLAUDE.md`, `~/.claude/skills`, `~/.agents/skills/sanitize-artifacts` (out-of-store link) |
+| `config/ai-agents/` | AI agent 共通指示 (`INSTRUCTIONS.md`) と skills (`sanitize-artifacts`, `delegate-codex`, `delegate-antigravity`, `paper-review`) | `~/.claude/CLAUDE.md`, `~/.claude/skills`, `~/.agents/skills/sanitize-artifacts` (out-of-store link) |
 | `config/codex/AGENTS.md` | 共通指示 (`config/ai-agents/INSTRUCTIONS.md`) への symlink | `~/.codex/AGENTS.md` (out-of-store link で編集即反映) |
 | `config/codex/config.toml` | Codex の既定設定 (model / reasoning / service tier / permission) | `~/.codex/config.toml` (存在しないときだけコピー。以後は Codex が書き換えるローカルファイル) |
 | `config/codex/subagent.config.toml` | subagent 用 Codex profile (`codex exec -p subagent`) | `~/.codex/subagent.config.toml` (out-of-store link) |

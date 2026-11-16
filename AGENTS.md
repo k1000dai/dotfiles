@@ -9,7 +9,7 @@
   - Update must never prompt to install nix. It updates nixpkgs and reapplies Home Manager, or refreshes Linux pixi links and runs `pixi global sync` when nix is absent.
 - Keep shared CLI tools aligned between `home*.nix` and `config/pixi/manifests/pixi-global-linux.toml` where available.
 - Manage npm-only CLIs in `config/npm/npm-global-packages.txt`, installed with `--prefix "$HOME/.local"`.
-- Claude Code, Codex, herdr, and Reason Network use `sync_claude_code` / `sync_codex` / `sync_herdr` / `sync_reason_network` in the shared bootstrap script. Do not add them to npm manifests or nix packages. Never commit the Reason Network join link; it is read from `REASON_NETWORK_JOIN_URL`.
+- uv, pixi, Claude Code, Codex, and herdr use their official curl installers via `sync_uv` / `sync_pixi` / `sync_claude_code` / `sync_codex` / `sync_herdr` in the shared bootstrap script on both backends. Do not add them to npm manifests, nix packages, or pixi global manifests.
 - When adding or relocating dotfiles, update Home Manager declarations, `setup_links` in the shared bootstrap script, and `README.md`. Preserve `*.bak.<timestamp>` backups for link conflicts.
 - Shared agent instructions live in `config/ai-agents/INSTRUCTIONS.md`; `config/claude/CLAUDE.md` and `config/codex/AGENTS.md` are symlinks to it. Keep repository-specific rules here.
 - Claude settings are merged into a writable local file by `script/lib/sync-claude-settings.sh` on both backends. Only portable settings belong in `config/claude/settings.json`; never commit `autoMode.environment`, project trust, credentials, or device-specific paths there.

@@ -1,6 +1,6 @@
 version = 1
 
-# pixi / uv 自体は bootstrap の都合で script/setup.sh 側で先に入れます。
+# pixi / uv 自体は公式 installer (curl) で script/setup.sh 側が入れます。
 # system 依存や別配布のものはここでは無理に束ねません。
 
 [envs.cli]
@@ -23,8 +23,8 @@ exposed = { ghq = "ghq" }
 
 [envs.python]
 channels = ["conda-forge"]
-dependencies = { python = "3.12.*", ruff = "*", uv = "*" }
-exposed = { python = "python", python3 = "python3", ruff = "ruff", uv = "uv", uvx = "uvx" }
+dependencies = { python = "3.12.*", ruff = "*" }
+exposed = { python = "python", python3 = "python3", ruff = "ruff" }
 
 # Claude Code's Stop hook parses JSON and runs repository checks.
 [envs.agent-hooks]

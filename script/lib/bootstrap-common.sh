@@ -275,26 +275,62 @@ can_install_nix_multi_user() {
   return 1
 }
 
-install_uv() {
-  if command -v uv >/dev/null 2>&1; then
-    log "uv is already installed: $(command -v uv)"
+sync_uv() {
+  local mode="${1:-setup}"
+  local install_dir="${HOME}/.local/bin"
+  local uv_bin="${install_dir}/uv"
+
+  if [[ "${SKIP_TOOL_INSTALL}" == "1" ]]; then
+    log "Skipping uv standalone installer because SKIP_TOOL_INSTALL=1"
     return 0
   fi
 
-  log "Installing uv into ${HOME}/.local/bin"
-  UV_INSTALL_DIR="$HOME/.local/bin" safe_curl_run 'https://astral.sh/uv/install.sh' 'uv'
-  ensure_path "${HOME}/.local/bin"
+  if keep_installed_tool "${mode}" uv "${uv_bin}"; then
+    return 0
+  fi
+
+  # Astral's standalone installer puts uv/uvx into ~/.local/bin on both
+  # backends (not nixpkgs or pixi global). The shell rc files manage PATH, so
+  # keep the installer away from the profiles.
+  ensure_path "${install_dir}"
+
+  # `uv self update` only works for installer-managed binaries; a symlink into
+  # a package manager's store gets a standalone copy instead.
+  if [[ -x "${uv_bin}" && ! -L "${uv_bin}" ]]; then
+    log "Updating uv via uv self update"
+    run "${uv_bin}" self update
+  else
+    log "Installing uv into ${install_dir} via official standalone installer"
+    UV_INSTALL_DIR="${install_dir}" UV_NO_MODIFY_PATH=1 \
+      safe_curl_run 'https://astral.sh/uv/install.sh' 'uv'
+  fi
 }
 
-install_pixi() {
-  if command -v pixi >/dev/null 2>&1; then
-    log "pixi is already installed: $(command -v pixi)"
+sync_pixi() {
+  local mode="${1:-setup}"
+  local pixi_home="${HOME}/.pixi"
+  local pixi_bin="${pixi_home}/bin/pixi"
+
+  if [[ "${SKIP_TOOL_INSTALL}" == "1" ]]; then
+    log "Skipping pixi standalone installer because SKIP_TOOL_INSTALL=1"
     return 0
   fi
 
-  log "Installing pixi into ${HOME}/.pixi/bin"
-  PIXI_HOME="$HOME/.pixi" PIXI_BIN_DIR="$HOME/.pixi/bin" PIXI_NO_PATH_UPDATE=1 safe_curl_run 'https://pixi.sh/install.sh' 'pixi'
-  ensure_path "${HOME}/.pixi/bin"
+  if keep_installed_tool "${mode}" pixi "${pixi_bin}"; then
+    return 0
+  fi
+
+  # pixi's standalone installer puts pixi into ~/.pixi/bin on both backends.
+  ensure_path "${pixi_home}/bin"
+
+  if [[ -x "${pixi_bin}" && ! -L "${pixi_bin}" ]]; then
+    log "Updating pixi via pixi self-update"
+    run "${pixi_bin}" self-update
+  else
+    log "Installing pixi into ${pixi_home}/bin via official standalone installer"
+    PIXI_HOME="${pixi_home}" PIXI_BIN_DIR="${pixi_home}/bin" PIXI_NO_PATH_UPDATE=1 \
+      safe_curl_run 'https://pixi.sh/install.sh' 'pixi'
+  fi
 }
 
 backup_target() {
@@ -810,12 +846,7 @@ setup_with_pixi() {
   ensure_path "${HOME}/.local/bin"
   ensure_path "${HOME}/.pixi/bin"
 
-  if [[ "${SKIP_TOOL_INSTALL}" == "1" ]]; then
-    log "Skipping uv/pixi installation because SKIP_TOOL_INSTALL=1"
-  else
-    install_uv
-    install_pixi
-  fi
+  sync_pixi "${mode}"
 
   if ! command -v pixi >/dev/null 2>&1; then
     log "pixi command is required but was not found on PATH"
@@ -826,6 +857,8 @@ setup_with_pixi() {
   seed_codex_config
   seed_antigravity_config
   sync_pixi_global
+  # After the global sync, which removes the uv that older manifests exposed.
+  sync_uv "${mode}"
   sync_claude_settings
   sync_neovim_plugins "${mode}"
   sync_npm_global_packages "${mode}"
@@ -856,6 +889,9 @@ setup_with_nix() {
 
   # Fail if inputs need relocking; only update_with_nix may change flake.lock.
   home_manager_cmd switch --flake "${REPO_ROOT}#${target}" --no-update-lock-file
+  # After the switch, which drops the uv/pixi that older profiles supplied.
+  sync_uv "${mode}"
+  sync_pixi "${mode}"
   seed_codex_config
   seed_antigravity_config
   sync_npm_global_packages "${mode}"

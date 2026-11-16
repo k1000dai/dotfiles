@@ -9,7 +9,7 @@ version = 1
 # この minimal では neovim を動かす最小限と必須 CLI を単一の core env に統合し、
 # 共有依存 (python / nodejs / 共有ライブラリ) のコピーを 1 つに抑えます。
 #
-# pixi / uv 自体は bootstrap の都合で script/setup.sh 側で先に入れます。
+# pixi / uv 自体は公式 installer (curl) で script/setup.sh 側が入れます。
 
 [envs.core]
 channels = ["conda-forge"]
