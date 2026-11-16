@@ -182,7 +182,6 @@ AI CLI は公式が配布する standalone installer で `~/.local/bin` に導�
 | `codex` | `sync_codex` | `curl -fsSL https://chatgpt.com/codex/install.sh \| sh` | `~/.local/bin/codex` |
 | `agy` | `sync_antigravity` | `curl -fsSL https://antigravity.google/cli/install.sh \| bash` | `~/.local/bin/agy` |
 | `herdr` | `sync_herdr` | `curl -fsSL https://herdr.dev/install.sh \| sh` | `~/.local/bin/herdr` |
-| `reason` | `sync_reason_network` | `curl -fsSL https://reasonmachines.com/install.sh \| bash -s -- network join '<link>'` | `~/.local/bin/reason` |
 
 - `@anthropic-ai/claude-code` / `@openai/codex` は npm 側では管理しません。既存の npm 版から standalone 版への移行は `update.sh` で行います。`config/npm/npm-global-packages.txt` に戻さないでください。
 - `codex` / `agy` / `herdr` は nix (`pkgs.codex` / `pkgs.herdr` など) でも入れません。`home.nix` の該当行はコメントアウトしてあります。
@@ -192,14 +191,7 @@ AI CLI は公式が配布する standalone installer で `~/.local/bin` に導�
 - `update.sh` では、`agy` (Antigravity CLI) は `~/.local/bin/agy` があれば、そのバイナリの `agy update` を実行します。PATH 上の別バイナリや symlink は更新対象にせず、導入先が symlink の場合は standalone installer で置き換えます。初回は `agy` を対話実行して Google アカウントでログインしてください。
 - `update.sh` では、`herdr` は導入先のバイナリで `herdr update` を実行します。[公式の注意事項](https://herdr.dev/docs/install/#update) に従い、PATH 上の別バイナリや package manager を指す symlink は更新対象にせず、導入先が symlink の場合は standalone installer で置き換えます。
 - `HERDR_INSTALL_DIR` を指定した場合、インストール・更新の両方で同じディレクトリを使います。更新時も同じ値を指定してください。省略時は `~/.local/bin` です。更新に失敗した場合はエラーを返し、別チャネルへの再インストールは行いません。
-- `reason` (Reason Network) の招待リンクは秘密情報で、この repo は public なのでコミットしません。未導入の場合、`setup.sh` を端末から実行すると join link の貼り付けを求めます (Enter でスキップ)。link を受け取ったときだけ installer を実行し、CLI の導入と `reason network join` を行います。`update.sh`、`DRY_RUN=1`、非対話実行では確認しません。事前に渡すこともできます。
-
-  ```bash
-  REASON_NETWORK_JOIN_URL='https://reasonmachines.com/network/join/#rn1-...' ./script/setup.sh
-  ```
-
-- `reason` 導入済みの場合、`network who --json` で team を確認し、未参加のときだけ `reason network join` を実行します。CLI は Reason Network の background process が 1 日 1 回ほど更新します。`reason update` は desktop components (macOS で約 325 MB) も導入するため使いません。
-- `SKIP_TOOL_INSTALL=1` で 5 CLI のインストール・更新をスキップできます。
+- `SKIP_TOOL_INSTALL=1` で上記 6 CLI のインストール・更新をスキップできます。
 
 ### Agent 設定と hooks
 
